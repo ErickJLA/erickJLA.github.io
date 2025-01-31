@@ -40,45 +40,42 @@
     let characteristicTX = null;
     let characteristicRX = null;
 
-    async function connect() {
-      try {
-        statusDiv.textContent = 'Searching for device...';
+async function connect() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
+    });
 
-        // Request Bluetooth device with the specified service UUID
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: ['79daf682-341b-42b5-891a-1647a8a9517b'] }],
-          optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b'] // Include optional services
-        });
+    console.log('Device:', device.name);
+    const server = await device.gatt.connect();
+    console.log('Connected to server');
 
-        statusDiv.textContent = 'Connecting to device...';
-        const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
+    console.log('Service found');
 
-        statusDiv.textContent = 'Discovering services...';
-        const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
+    const characteristicTX = await service.getCharacteristic('daa5f483-1420-4f26-9095-165d8fc6a321');
+    console.log('TX Characteristic found');
 
-        statusDiv.textContent = 'Getting characteristics...';
-        characteristicTX = await service.getCharacteristic('daa5f483-1420-4f26-9095-165d8fc6a321');
-        characteristicRX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada');
+    const characteristicRX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada');
+    console.log('RX Characteristic found');
 
-        // Enable notifications for the TX characteristic
-        await characteristicTX.startNotifications();
-        characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
+    // Enable notifications for the TX characteristic
+    await characteristicTX.startNotifications();
+    characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
+    console.log('Notifications enabled');
 
-        statusDiv.textContent = 'Connected';
-        connectButton.disabled = true;
-        disconnectButton.disabled = false;
-        sendButton.disabled = false;
+    alert('Connected successfully!');
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Connection failed: ' + error.message);
+  }
+}
 
-      } catch (error) {
-        statusDiv.textContent = 'Error: ' + error.message;
-        console.error(error);
-      }
-    }
-
-    function handleIncomingData(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      receivedDataDiv.innerHTML += value + '<br>';
-    }
+function handleIncomingData(event) {
+  const value = new TextDecoder().decode(event.target.value);
+  console.log('Received:', value);
+}
 
     function disconnect() {
       if (device) {
