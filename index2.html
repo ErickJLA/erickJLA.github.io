@@ -43,7 +43,7 @@
 async function connect() {
   try {
     const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
+      filters: [{ services: ['79daf682-341b-42b5-891a-1647a8a9517b'] }],
       optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
     });
 
