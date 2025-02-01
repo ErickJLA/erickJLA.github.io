@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ESP32 Web Bluetooth</title>
+  <title>ESP32 Web Bluetooth 1.0 </title>
   <style>
     body {
       font-family: sans-serif;
@@ -40,45 +40,39 @@
     let characteristicTX = null;
     let characteristicRX = null;
 
-    async function connect() {
-      try {
-        console.log('Requesting Bluetooth Device...');
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true, // Still using the temporary change for debugging
-          optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
-        });
+async function connect() {
+  try {
+    console.log('Requesting Bluetooth Device...');
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
+    });
 
-        console.log('> Name:             ' + device.name);
-        console.log('> Id:               ' + device.id);
-        console.log('> Connected:        ' + device.gatt.connected);
+    console.log('> Name:             ' + device.name);
+    console.log('> Id:               ' + device.id);
+    console.log('> Connected:        ' + device.gatt.connected);
 
-        console.log('Connecting to GATT Server...');
-        const server = await device.gatt.connect();
+    console.log('Connecting to GATT Server...');
+    const server = await device.gatt.connect();
 
-        console.log('Getting Service...');
-        const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
+    console.log('Getting Service...');
+    const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
 
-        console.log('Getting Characteristic...');
-        characteristicTX = await service.getCharacteristic('daa5f483-1420-4f26-9095-165d8fc6a321');
-        characteristicRX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada');
+    console.log('Getting Characteristic...');
+    characteristicTX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada'); // Only TX now
 
-        // Enable notifications for the TX characteristic
-        await characteristicTX.startNotifications();
-        characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
-        console.log('Notifications enabled');
+    // Try to read the value (add this)
+    const value = await characteristicTX.readValue();
+    const decoder = new TextDecoder('utf-8');
+    console.log('Read value:', decoder.decode(value));
 
-        statusDiv.textContent = 'Status: Connected';
-        connectButton.disabled = true;
-        disconnectButton.disabled = false;
-        sendButton.disabled = false;
+    alert('Connected successfully!');
 
-        alert('Connected successfully!');
-
-      } catch (error) {
-        console.error('Error in connection process:', error);
-        alert('Connection failed: ' + error.message);
-      }
-    }
+  } catch (error) {
+    console.error('Error in connection process:', error);
+    alert('Connection failed: ' + error.message);
+  }
+}
 
     function handleIncomingData(event) {
       const value = new TextDecoder().decode(event.target.value);
