@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ESP32 Web Bluetooth 1.0 </title>
+  <title>ESP32 Web Bluetooth</title>
   <style>
     body {
       font-family: sans-serif;
@@ -40,55 +40,70 @@
     let characteristicTX = null;
     let characteristicRX = null;
 
-async function connect() {
-  try {
-    console.log('Requesting Bluetooth Device...');
-    const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
-    });
+    async function connect() {
+      try {
+        console.log('Requesting Bluetooth Device...');
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true, // Consider using filters for better security
+          optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b'] // Replace with your service UUID
+        });
 
-    console.log('> Name:             ' + device.name);
-    console.log('> Id:               ' + device.id);
-    console.log('> Connected:        ' + device.gatt.connected);
+        console.log('> Name:             ' + device.name);
+        console.log('> Id:               ' + device.id);
+        console.log('> Connected:        ' + device.gatt.connected);
 
-    console.log('Connecting to GATT Server...');
-    const server = await device.gatt.connect();
+        console.log('Connecting to GATT Server...');
+        const server = await device.gatt.connect();
 
-    console.log('Getting Service...');
-    const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
+        console.log('Getting Service...');
+        const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b'); // Replace with your service UUID
 
-    console.log('Getting Characteristic...');
-    characteristicTX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada'); // Only TX now
+        console.log('Getting Characteristics...');
+        characteristicTX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada'); // Replace with your TX characteristic UUID
+        characteristicRX = await service.getCharacteristic('daa5f483-1420-4f26-9095-165d8fc6a321'); // Replace with your RX characteristic UUID
 
-    // Try to read the value (add this)
-    const value = await characteristicTX.readValue();
-    const decoder = new TextDecoder('utf-8');
-    console.log('Read value:', decoder.decode(value));
+        // Read initial value from TX characteristic (if needed)
+        const initialValue = await characteristicTX.readValue();
+        const decoder = new TextDecoder('utf-8');
+        console.log('Initial TX value:', decoder.decode(initialValue));
 
-    alert('Connected successfully!');
+        // Enable notifications for the TX characteristic
+        await characteristicTX.startNotifications();
+        characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
+        console.log('Notifications enabled');
 
-  } catch (error) {
-    console.error('Error in connection process:', error);
-    alert('Connection failed: ' + error.message);
-  }
-}
+        // Enable the send button
+        sendButton.disabled = false;
+        // Update the status and enable/disable buttons
+        statusDiv.textContent = 'Status: Connected';
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+
+        alert('Connected successfully!');
+
+      } catch (error) {
+        console.error('Error in connection process:', error);
+        alert('Connection failed: ' + error.message);
+      }
+    }
 
     function handleIncomingData(event) {
       const value = new TextDecoder().decode(event.target.value);
       console.log('Received:', value);
+      receivedDataDiv.textContent += value + '\n'; // Add received data to the div
     }
 
     function disconnect() {
       if (device) {
         if (characteristicTX) {
           characteristicTX.removeEventListener('characteristicvaluechanged', handleIncomingData);
+          characteristicTX.stopNotifications()
+          .catch(error => {
+            console.error('Error stopping notifications:', error);
+          });
         }
         device.gatt.disconnect();
-        device = null;
-        characteristicTX = null;
-        characteristicRX = null;
-
+        
         statusDiv.textContent = 'Status: Disconnected';
         connectButton.disabled = false;
         disconnectButton.disabled = true;
@@ -102,29 +117,14 @@ async function connect() {
         try {
           const encoder = new TextEncoder();
           const data = encoder.encode(message);
-
-          // Chunk the data into smaller parts (e.g., 20 bytes each)
-          const chunkSize = 20;
-          for (let i = 0; i < data.length; i += chunkSize) {
-            const chunk = data.slice(i, i + chunkSize);
-            await characteristicRX.writeValue(chunk);
-            console.log('Sent chunk:', chunk);
-
-            // Introduce a delay after each write
-            await delay(500); // Wait for 500 milliseconds (adjust as needed)
-          }
-
+          await characteristicRX.writeValue(data);
           messageInput.value = '';
+          console.log('Sent message:', message);
         } catch (error) {
+          console.error('Error sending message:', error);
           statusDiv.textContent = 'Error sending message: ' + error.message;
-          console.error(error);
         }
       }
-    }
-
-    // Helper function to create a delay using Promises
-    function delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     connectButton.addEventListener('click', connect);
