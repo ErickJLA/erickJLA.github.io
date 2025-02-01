@@ -74,8 +74,9 @@
 
         // Enable the send button
         sendButton.disabled = false;
-        // Update the status and enable/disable buttons
-        statusDiv.textContent = 'Status: Connected';
+
+        // **CORRECTED PART:** Update the status and enable/disable buttons
+        statusDiv.textContent = 'Status: Connected'; // Update status to connected
         connectButton.disabled = true;
         disconnectButton.disabled = false;
 
@@ -103,7 +104,8 @@
           });
         }
         device.gatt.disconnect();
-        
+
+        // Update the status and enable/disable buttons
         statusDiv.textContent = 'Status: Disconnected';
         connectButton.disabled = false;
         disconnectButton.disabled = true;
