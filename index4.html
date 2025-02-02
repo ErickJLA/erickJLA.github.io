@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-  <h1>ESP32 Web Bluetooth</h1>
+  <h1>ESP32 Web Bluetooth 1.0</h1>
   <div id="status">Status: Not connected</div>
 
   <button id="connectButton">Connect</button>
@@ -143,8 +143,10 @@
     connectButton.addEventListener('click', connect);
     disconnectButton.addEventListener('click', disconnect);
     sendButton.addEventListener('click', send);
+   
     ledOnButton.addEventListener('click', () => {
-      send('LED_ON');
+      alert("LED ON button clicked"); 
+      //send('LED_ON');
     });
     ledOffButton.addEventListener('click', () => {
       send('LED_OFF');
