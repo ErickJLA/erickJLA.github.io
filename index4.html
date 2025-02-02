@@ -124,29 +124,28 @@
       }
     }
 
-    async function send() {
-      const message = messageInput.value;
-      if (message && characteristicRX) {
-        try {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(message);
-          await characteristicRX.writeValue(data);
-          messageInput.value = '';
-          console.log('Sent message:', message);
-        } catch (error) {
-          console.error('Error sending message:', error);
-          statusDiv.textContent = 'Error sending message: ' + error.message;
-        }
-      }
+async function send(message) { // Add a message parameter
+  if (message && characteristicRX) { 
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      await characteristicRX.writeValue(data);
+      messageInput.value = ''; // Clear the input field (optional)
+      console.log('Sent message:', message);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      statusDiv.textContent = 'Error sending message: ' + error.message;
     }
+  }
+}
 
     connectButton.addEventListener('click', connect);
     disconnectButton.addEventListener('click', disconnect);
     sendButton.addEventListener('click', send);
    
     ledOnButton.addEventListener('click', () => {
-      alert("LED ON button clicked"); 
-      //send('LED_ON');
+      //alert("LED ON button clicked"); 
+      send('LED_ON');
     });
     ledOffButton.addEventListener('click', () => {
       send('LED_OFF');
