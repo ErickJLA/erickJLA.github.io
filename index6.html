@@ -22,8 +22,16 @@
       font-size: 1rem;
       padding: 0.5rem;
       text-align: center;
-      background-color: #f8f9fa; /* Light gray background */
-      border-bottom: 1px solid #dee2e6; /* Light border */
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    #connection-status {
+      color: red; /* Default: Disconnected (Red) */
+    }
+
+    #connection-status.connected {
+      color: green; /* Connected (Green) */
     }
 
     #set-zero-progress {
@@ -42,7 +50,8 @@
 <body>
   <div id="app">
     <div id="status-bar">
-      <span id="led-status">LED: None</span> | <span id="absorbance-status">Absorbance: N/A</span>
+      <span id="connection-status">● Disconnected</span> | <span id="led-status">LED: None</span> | <span
+        id="absorbance-status">Absorbance: N/A</span>
     </div>
 
     <b-tabs>
@@ -50,7 +59,6 @@
         <div class="container">
           <div class="row">
             <div class="col-12">
-              <div id="status">Status: Not connected</div>
               <button id="connectButton" class="btn btn-primary btn-block">Connect</button>
               <button id="redLEDButton" class="btn btn-danger btn-block">Red LED</button>
               <button id="greenLEDButton" class="btn btn-success btn-block">Green LED</button>
@@ -222,6 +230,12 @@
           } else {
             row.concentration = newValue;
           }
+        },
+        updateAbsorbance(absorbance) { // Dedicated method for absorbance
+          this.currentAbsorbance = absorbance;
+        },
+        updateLED(led) { // Dedicated method for LED
+          this.currentLED = led;
         }
       },
       watch: { // Use a watcher for more reliable updates
@@ -244,6 +258,7 @@
     const progressBar = document.querySelector('#set-zero-progress .progress-bar');
     const zeroPromptModal = $('#zeroPromptModal');
     const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+    const connectionStatus = document.getElementById('connection-status'); // Add this
 
     let device = null;
     let characteristicTX = null;
@@ -279,6 +294,10 @@
         statusDiv.textContent = 'Status: Connected';
         connectButton.disabled = true;
 
+        // Update connection status in status bar
+        connectionStatus.textContent = '● Connected';
+        connectionStatus.classList.add('connected');
+
         alert('Connected successfully!');
 
       } catch (error) {
@@ -302,6 +321,10 @@
           app.addLog('Data received but no active data table selected.');
         }
         app.updateAbsorbance(parseFloat(dataValue).toFixed(8)); // Update absorbance
+      } else if (value.startsWith('a:')) {
+        // New: Continuous absorbance update
+        const absorbanceValue = parseFloat(value.substring(2)).toFixed(8);
+        app.updateAbsorbance(absorbanceValue);
       } else {
         app.addLog(value);
       }
@@ -353,7 +376,7 @@
       okButton.onclick = () => {
         send(`LED_${ledColor.toUpperCase()}_ON`);
         zeroPromptModal.modal('hide');
-        app.currentLED = ledColor; // Update LED
+        app.updateLED(ledColor); // Update LED
         app.updateStatusBar();
         app.startSetZeroProgress();
         setZeroProgressDiv.style.display = 'block';
