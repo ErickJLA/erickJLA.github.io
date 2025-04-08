@@ -44,13 +44,9 @@
             <div class="col-12">
               <div id="status">Status: Not connected</div>
               <button id="connectButton" class="btn btn-primary btn-block">Connect</button>
-              <button id="disconnectButton" class="btn btn-secondary btn-block" disabled>Disconnect</button>
-              <input type="text" id="messageInput" placeholder="Enter message" class="form-control">
-              <button id="sendButton" class="btn btn-info btn-block" disabled>Send</button>
               <button id="redLEDButton" class="btn btn-danger btn-block">Red LED</button>
               <button id="greenLEDButton" class="btn btn-success btn-block">Green LED</button>
               <button id="blueLEDButton" class="btn btn-primary btn-block">Blue LED</button>
-              <button id="setZeroButton" class="btn btn-warning btn-block">Set Zero</button>
               <div id="set-zero-progress" class="progress">
                 <div class="progress-bar progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0"
                   aria-valuemin="0" aria-valuemax="100"></div>
@@ -183,7 +179,7 @@
           logMessages: [],
           currentLED: 'None',
           currentAbsorbance: 'N/A',
-          setZeroProgress: false // Add this to track progress
+          setZeroProgress: false
         };
       },
       methods: {
@@ -238,13 +234,13 @@
 
   <script>
     const connectButton = document.getElementById('connectButton');
-    const disconnectButton = document.getElementById('disconnectButton');
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.getElementById('sendButton');
+    //const disconnectButton = document.getElementById('disconnectButton');
+    //const messageInput = document.getElementById('messageInput');
+    //const sendButton = document.getElementById('sendButton');
     const statusDiv = document.getElementById('status');
     const takeCurveReadingButton = document.getElementById('takeCurveReadingButton');
     const takeSampleReadingButton = document.getElementById('takeSampleReadingButton');
-    const setZeroButton = document.getElementById('setZeroButton');
+    //const setZeroButton = document.getElementById('setZeroButton');
     const redLEDButton = document.getElementById('redLEDButton');
     const greenLEDButton = document.getElementById('greenLEDButton');
     const blueLEDButton = document.getElementById('blueLEDButton');
@@ -252,12 +248,12 @@
     const setZeroProgressDiv = document.getElementById('set-zero-progress');
     const progressBar = document.querySelector('#set-zero-progress .progress-bar');
     const zeroPromptModal = $('#zeroPromptModal');
-    const setZeroConfirmation = document.getElementById('set-zero-confirmation'); // Get confirmation element
+    const setZeroConfirmation = document.getElementById('set-zero-confirmation');
 
     let device = null;
     let characteristicTX = null;
     let characteristicRX = null;
-    let zeroingInterval; // Store the interval ID
+    let zeroingInterval;
 
     async function connect() {
       try {
@@ -285,11 +281,11 @@
         characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
         console.log('Notifications enabled');
 
-        sendButton.disabled = false;
+        //sendButton.disabled = false;
 
         statusDiv.textContent = 'Status: Connected';
         connectButton.disabled = true;
-        disconnectButton.disabled = false;
+        //disconnectButton.disabled = false;
 
         alert('Connected successfully!');
 
@@ -333,8 +329,8 @@
 
         statusDiv.textContent = 'Status: Disconnected';
         connectButton.disabled = false;
-        disconnectButton.disabled = true;
-        sendButton.disabled = true;
+        //disconnectButton.disabled = true;
+        //sendButton.disabled = true;
       }
     }
 
@@ -344,7 +340,7 @@
           const encoder = new TextEncoder();
           const data = encoder.encode(message);
           await characteristicRX.writeValue(data);
-          messageInput.value = '';
+          //messageInput.value = '';
           console.log('Sent message:', message);
         } catch (error) {
           console.error('Error sending message:', error);
@@ -354,8 +350,8 @@
     }
 
     connectButton.addEventListener('click', connect);
-    disconnectButton.addEventListener('click', disconnect);
-    sendButton.addEventListener('click', () => send(messageInput.value));
+    //disconnectButton.addEventListener('click', disconnect);
+    //sendButton.addEventListener('click', () => send(messageInput.value));
 
     takeCurveReadingButton.addEventListener('click', () => {
       send('READ_SENSOR');
@@ -363,32 +359,6 @@
 
     takeSampleReadingButton.addEventListener('click', () => {
       send('READ_SENSOR');
-    });
-
-    setZeroButton.addEventListener('click', () => {
-      send('SET_ZERO');
-      app.currentAbsorbance = 'Setting...';
-      app.updateStatusBar();
-      app.startSetZeroProgress();
-      setZeroProgressDiv.style.display = 'block';
-      progressBar.style.width = '0%';
-      progressBar.setAttribute('aria-valuenow', 0);
-      setZeroConfirmation.style.display = 'none'; // Hide confirmation initially
-
-      let progress = 0;
-      zeroingInterval = setInterval(() => {
-        progress += 10;
-        progressBar.style.width = `${progress}%`;
-        progressBar.setAttribute('aria-valuenow', progress);
-        if (progress >= 100) {
-          clearInterval(zeroingInterval);
-          setTimeout(() => {
-            setZeroProgressDiv.style.display = 'none';
-            app.endSetZeroProgress();
-            setZeroConfirmation.style.display = 'block'; // Show confirmation
-          }, 500);
-        }
-      }, 500);
     });
 
     redLEDButton.addEventListener('click', () => {
@@ -407,7 +377,7 @@
       const promptMessage = `Insert blank sample and click OK to set zero with the ${ledColor} LED.`;
       $('#zeroPromptMessage').text(promptMessage);
       zeroPromptModal.modal('show');
-      setZeroConfirmation.style.display = 'none'; // Hide confirmation
+      setZeroConfirmation.style.display = 'none';
 
       const okButton = document.getElementById('modal-ok-button');
       okButton.onclick = () => {
@@ -430,7 +400,7 @@
             setTimeout(() => {
               setZeroProgressDiv.style.display = 'none';
               app.endSetZeroProgress();
-              setZeroConfirmation.style.display = 'block'; // Show confirmation
+              setZeroConfirmation.style.display = 'block';
             }, 500);
           }
         }, 500);
