@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>ESP32 Web Bluetooth Spectrophotometer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@2.22.0/dist/bootstrap-vue.min.css" />
+  <style>
+    /* Custom styles for better mobile experience and layout */
+    body {
+      padding-top: 60px; /* Add padding for the fixed status bar */
+      font-family: sans-serif; /* Use a standard sans-serif font */
+    }
+
+    .btn {
+      font-size: 1.1rem; /* Slightly smaller buttons */
+      padding: 0.6rem 1.2rem;
+      margin-bottom: 0.5rem; /* Add space between buttons */
+    }
+
+    .table th,
+    .table td {
+      padding: 0.5rem;
+      vertical-align: middle; /* Align table cell content vertically */
+    }
+
+    #status-bar {
+      font-size: 0.9rem; /* Slightly smaller status text */
+      padding: 0.5rem 1rem;
+      text-align: center;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+      position: fixed; /* Keep status bar visible */
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1030; /* Ensure it's above other content */
+      display: flex;
+      justify-content: space-around; /* Distribute status items */
+      align-items: center;
+    }
+
+    #connection-status {
+      color: red;
+      font-weight: bold;
+    }
+
+    #connection-status.connected {
+      color: green;
+    }
+
+    #set-zero-progress {
+      height: 15px;
+      display: none; /* Hide progress bar initially */
+      margin-top: 10px; /* Add space above progress bar */
+      margin-bottom: 10px;
+    }
+
+    /* Ensure progress bar animation */
+    .progress-bar {
+      transition: width 0.5s linear;
+    }
+
+    /* Style the tabs */
+    .nav-tabs .nav-link {
+        font-size: 1rem;
+    }
+
+    /* Add some padding within tab content */
+    .tab-content {
+        padding-top: 1rem;
+    }
+
+    /* Center the configuration buttons */
+    .config-buttons .col-12 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+     .config-buttons .btn {
+        width: 80%; /* Make buttons slightly narrower */
+        max-width: 300px; /* Set a max width */
+     }
+
+     /* Style the modal */
+    .modal-header {
+        background-color: #007bff;
+        color: white;
+    }
+    .modal-title {
+        font-weight: bold;
+    }
+    .close {
+        color: white;
+        opacity: 0.8;
+    }
+    .modal-footer .btn {
+        margin-left: 0.5rem;
+    }
+
+    /* Add padding to containers */
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    /* Style for notes input */
+    .notes-input {
+        min-width: 150px; /* Give notes input some minimum width */
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="status-bar">
+      <span id="connection-status" :class="{ connected: deviceConnected }">
+        ● {{ deviceConnected ? 'Connected' : 'Disconnected' }}
+      </span>
+      <span id="wavelength-status">λ: {{ currentWavelength }}</span>
+      <span id="absorbance-status">Absorbance: {{ currentAbsorbance }}</span>
+    </div>
+
+    <b-tabs content-class="mt-3" fill>
+      <b-tab title="Configuration" active>
+        <div class="container config-buttons">
+          <div class="row">
+            <div class="col-12">
+              <button id="connectButton" class="btn btn-primary btn-block" @click="connect" :disabled="deviceConnected">
+                {{ deviceConnected ? 'Connected' : 'Connect' }}
+              </button>
+              <hr> <button id="redLEDButton" class="btn btn-danger btn-block" @click="showZeroPrompt('625nm', 'Red')" :disabled="!deviceConnected">
+                625nm & Zero
+              </button>
+              <button id="greenLEDButton" class="btn btn-success btn-block" @click="showZeroPrompt('525nm', 'Green')" :disabled="!deviceConnected">
+                525nm & Zero
+              </button>
+              <button id="blueLEDButton" class="btn btn-primary btn-block" @click="showZeroPrompt('460nm', 'Blue')" :disabled="!deviceConnected">
+                460nm & Zero
+              </button>
+              <div id="set-zero-progress" class="progress w-100" style="max-width: 300px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+              <div id="set-zero-confirmation" style="display: none; text-align: center; margin-top: 10px; color: green; font-weight: bold;">
+                Zeroing complete for {{ currentWavelength }}.
+              </div>
+              <div id="user-message" style="text-align: center; margin-top: 15px; font-weight: bold;"></div> </div>
+          </div>
+        </div>
+      </b-tab>
+
+      <b-tab title="Samples" :disabled="!deviceConnected">
+        <div class="container">
+          <div class="row">
+            <div class="col-12">
+              <button id="takeSampleReadingButton" class="btn btn-outline-primary btn-block mb-3" @click="takeReading('sample')" :disabled="!deviceConnected || currentWavelength === 'None'">
+                Take Sample Reading
+              </button>
+               <div class="table-responsive"> <table id="data-table" class="table table-striped table-hover">
+                  <thead class="thead-light">
+                    <tr>
+                      <th>#</th>
+                      <th>Time</th>
+                      <th>Absorbance</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                     <tr v-if="tableData.length === 0">
+                        <td colspan="4" class="text-center">No sample data yet. Take a reading.</td>
+                    </tr>
+                    <tr v-for="(row, index) in tableData" :key="'sample-' + index">
+                      <td>{{ index + 1 }}</td>
+                      <td>{{ row.time }}</td>
+                      <td>{{ row.absorbance.toFixed(4) }}</td> <td>
+                          <input type="text" v-model="row.notes" class="form-control form-control-sm notes-input" placeholder="Enter notes...">
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+               <button class="btn btn-info btn-sm mt-2" @click="exportDataToCSV" :disabled="tableData.length === 0">
+                   Export Samples to CSV
+               </button>
+            </div>
+          </div>
+        </div>
+      </b-tab>
+
+      <b-tab title="Logs">
+        <div class="container">
+          <div class="row">
+            <div class="col-12">
+              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;"> <table id="log-table" class="table table-sm table-striped">
+                  <thead class="thead-light">
+                    <tr>
+                      <th style="width: 150px;">Timestamp</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="logMessages.length === 0">
+                        <td colspan="2" class="text-center">No log messages.</td>
+                    </tr>
+                    <tr v-for="(log, index) in reversedLogMessages" :key="'log-' + index">
+                      <td>{{ log.timestamp.toLocaleTimeString() }}</td>
+                      <td>{{ log.message }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+               <button class="btn btn-secondary btn-sm mt-2" @click="clearLogs">Clear Logs</button>
+            </div>
+          </div>
+        </div>
+      </b-tab>
+    </b-tabs>
+
+    <b-modal id="zeroPromptModal" title="Set Zero Confirmation" @ok="handleZeroOk" @cancel="handleZeroCancel" ok-title="OK - Start Zeroing" cancel-variant="secondary">
+        <p id="zeroPromptMessage">Insert blank sample and click OK to set zero with {{ wavelengthToZero }}.</p>
+    </b-modal>
+
+  </div> <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+  <script src="https://unpkg.com/bootstrap-vue@2.22.0/dist/bootstrap-vue.min.js"></script>
+  <script src="https://unpkg.com/jquery@3.5.1/dist/jquery.min.js"></script>
+  <script src="https://unpkg.com/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+
+  <script>
+    // BLE Service and Characteristic UUIDs
+    const SERVICE_UUID = '79daf682-341b-42b5-891a-1647a8a9517b';
+    const CHARACTERISTIC_TX_UUID = 'b6f055b0-cb3f-4c99-8098-2a793916bada'; // ESP32 to Web App (Notifications)
+    const CHARACTERISTIC_RX_UUID = 'daa5f483-1420-4f26-9095-165d8fc6a321'; // Web App to ESP32 (Write)
+
+    // Global BLE variables
+    let bleDevice = null;
+    let characteristicTX = null;
+    let characteristicRX = null;
+    let connectionCheckInterval = null;
+    let zeroingInterval = null;
+    let zeroingTimeout = null;
+
+    const app = new Vue({
+      el: '#app',
+      data() {
+        return {
+          tableData: [],
+          logMessages: [],
+          currentWavelength: 'None',
+          currentAbsorbance: 'N/A',
+          deviceConnected: false,
+          wavelengthToZero: '',
+          commandColorToSend: '',
+          isZeroing: false
+        };
+      },
+      computed: {
+          reversedLogMessages() {
+              return [...this.logMessages].reverse();
+          }
+      },
+      methods: {
+        // --- Data Handling ---
+        addDataToTable(dataValue) {
+          const absorbance = parseFloat(dataValue);
+           if (isNaN(absorbance)) {
+              this.addLog(`Received invalid sample data: ${dataValue}`);
+              return;
+          }
+          const newRow = {
+            time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+            absorbance: absorbance,
+            notes: '' // Initialize notes
+          };
+          this.tableData.push(newRow);
+          this.addLog(`Sample reading added: ${absorbance.toFixed(4)}`);
+        },
+        addLog(message) {
+          console.log("LOG:", message);
+          const newLog = {
+            message: message,
+            timestamp: new Date()
+          };
+          this.logMessages.push(newLog);
+          if (this.logMessages.length > 100) {
+            this.logMessages.shift();
+          }
+        },
+        clearLogs() {
+            this.logMessages = [];
+            this.addLog("Logs cleared.");
+        },
+
+        // --- UI Updates ---
+        updateAbsorbance(absorbance) {
+          if (this.isZeroing) return;
+          const numAbsorbance = parseFloat(absorbance);
+          this.currentAbsorbance = isNaN(numAbsorbance) ? 'N/A' : numAbsorbance.toFixed(4);
+        },
+        updateWavelength(wavelength) {
+          this.currentWavelength = wavelength;
+          this.addLog(`Wavelength set to: ${wavelength}`);
+        },
+        setDeviceConnected(connected) {
+          this.deviceConnected = connected;
+          this.currentAbsorbance = 'N/A';
+          this.currentWavelength = 'None';
+           if (!connected) {
+               this.addLog('Device disconnected.');
+               this.resetUIState();
+           } else {
+               this.addLog('Device connected successfully.');
+           }
+           this.hideUserMessage();
+        },
+        resetUIState() {
+            this.isZeroing = false;
+            if (zeroingInterval) clearInterval(zeroingInterval);
+            if (zeroingTimeout) clearTimeout(zeroingTimeout);
+            zeroingInterval = null;
+            zeroingTimeout = null;
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+            if (setZeroProgressDiv) setZeroProgressDiv.style.display = 'none';
+            if (setZeroConfirmation) setZeroConfirmation.style.display = 'none';
+        },
+        showUserMessage(message, isError = false) {
+            const msgDiv = document.getElementById('user-message');
+            if (msgDiv) {
+                msgDiv.textContent = message;
+                msgDiv.style.color = isError ? 'red' : 'green';
+                msgDiv.style.display = 'block';
+            }
+        },
+        hideUserMessage() {
+            const msgDiv = document.getElementById('user-message');
+            if (msgDiv) {
+                msgDiv.style.display = 'none';
+                msgDiv.textContent = '';
+            }
+        },
+
+        // --- BLE Actions ---
+        async connect() {
+          // ... (connect logic remains the same) ...
+          if (!navigator.bluetooth) {
+            this.addLog('Web Bluetooth API is not available in this browser.');
+            this.showUserMessage('Web Bluetooth is not supported by your browser.', true);
+            return;
+          }
+          this.addLog('Requesting Bluetooth Device...');
+          this.showUserMessage('Scanning for devices... Please select your ESP32.');
+
+          try {
+            // Filtering is active
+            this.addLog(`Filtering for Service UUID: ${SERVICE_UUID}`);
+            bleDevice = await navigator.bluetooth.requestDevice({
+              filters: [{ services: [SERVICE_UUID] }],
+              optionalServices: [SERVICE_UUID]
+            });
+
+            this.addLog(`Connecting to device: ${bleDevice.name || bleDevice.id}...`);
+            this.showUserMessage(`Connecting to ${bleDevice.name || 'device'}...`);
+
+            bleDevice.addEventListener('gattserverdisconnected', this.onDisconnected);
+
+            const server = await bleDevice.gatt.connect();
+            this.addLog('Connected to GATT Server.');
+
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            this.addLog('Got primary service.');
+
+            characteristicTX = await service.getCharacteristic(CHARACTERISTIC_TX_UUID);
+            characteristicRX = await service.getCharacteristic(CHARACTERISTIC_RX_UUID);
+            this.addLog('Got characteristics TX and RX.');
+
+            await characteristicTX.startNotifications();
+            characteristicTX.addEventListener('characteristicvaluechanged', this.handleIncomingData);
+            this.addLog('Started notifications on TX characteristic.');
+
+            this.setDeviceConnected(true);
+            this.showUserMessage(`Connected to ${bleDevice.name || 'device'}!`, false);
+
+            this.startConnectionMonitoring();
+
+          } catch (error) {
+            if (error.name === 'NotFoundError') {
+                 this.addLog('Device selection cancelled or no matching device found.');
+                 this.showUserMessage('Device selection cancelled or no matching device found.');
+            } else {
+                this.addLog(`Connection failed: ${error}`);
+                this.showUserMessage(`Connection failed: ${error.message}`, true);
+            }
+            this.disconnectCleanup();
+          }
+        },
+
+        // --- Event Handlers ---
+        handleIncomingData(event) {
+          // ... (data handling logic remains the same) ...
+           try {
+            const value = new TextDecoder().decode(event.target.value);
+
+            if (value.startsWith('d:')) { // Discrete data reading
+              const dataValue = value.substring(2);
+              this.addLog(`Received data reading: ${dataValue}`);
+              // Determine active tab - now only Samples tab uses 'd:'
+              const activeTabEl = document.querySelector('.tab-pane.active');
+              if (activeTabEl) {
+                  // Check if the Samples tab content is active
+                  const sampleTable = activeTabEl.querySelector('#data-table');
+                  if (sampleTable) {
+                      this.addDataToTable(dataValue);
+                  } else {
+                       this.addLog(`Data 'd:' received but Samples tab not active.`);
+                  }
+              }
+              this.updateAbsorbance(dataValue);
+
+            } else if (value.startsWith('a:')) { // Continuous absorbance update
+              const absorbanceValue = value.substring(2);
+              this.updateAbsorbance(absorbanceValue);
+
+            } else if (value.startsWith('z:')) { // Zeroing confirmation/status
+                const status = value.substring(2);
+                this.addLog(`Zeroing status received: ${status}`);
+                if (this.isZeroing) {
+                    if (status === 'DONE') {
+                        this.endSetZeroProgress(true);
+                    } else if (status === 'ERROR') {
+                        this.endSetZeroProgress(false);
+                    } else {
+                        this.addLog(`Unknown zeroing status: ${status}`);
+                    }
+                } else {
+                     this.addLog(`Received zeroing status '${status}' but not currently zeroing.`);
+                }
+            } else { // Assume it's a general log message from ESP32
+              this.addLog(`ESP32: ${value}`);
+            }
+          } catch (error) {
+            this.addLog(`Error processing incoming data: ${error}`);
+          }
+        },
+
+        onDisconnected(event) {
+          this.addLog('GATT Server disconnected event received.');
+          this.disconnectCleanup();
+        },
+
+        // --- Cleanup Logic ---
+        disconnectCleanup() {
+          // ... (cleanup logic remains the same) ...
+           this.addLog('Cleaning up BLE connection...');
+          if (connectionCheckInterval) {
+            clearInterval(connectionCheckInterval);
+            connectionCheckInterval = null;
+            this.addLog('Cleared connection check interval.');
+          }
+          this.resetUIState();
+
+          if (bleDevice) {
+              try {
+                 bleDevice.removeEventListener('gattserverdisconnected', this.onDisconnected);
+              } catch(e) {
+                 this.addLog("Could not remove disconnect listener.");
+              }
+          }
+          if (characteristicTX) {
+             try {
+                characteristicTX.removeEventListener('characteristicvaluechanged', this.handleIncomingData);
+                characteristicTX.stopNotifications().catch(err => this.addLog(`Error stopping notifications: ${err}`));
+             } catch(e) {
+                 this.addLog("Could not remove value change listener or stop notifications.");
+             }
+          }
+          characteristicTX = null;
+          characteristicRX = null;
+          bleDevice = null;
+          if (this.deviceConnected) {
+             this.setDeviceConnected(false);
+          }
+        },
+
+        // --- Connection Monitoring (Fallback) ---
+        startConnectionMonitoring() {
+          // ... (monitoring logic remains the same) ...
+           if (connectionCheckInterval) {
+            clearInterval(connectionCheckInterval);
+          }
+          this.addLog('Starting connection monitoring interval.');
+          connectionCheckInterval = setInterval(() => {
+            if (bleDevice && bleDevice.gatt && !bleDevice.gatt.connected) {
+              this.addLog('Connection monitoring detected disconnection.');
+              this.disconnectCleanup();
+            }
+          }, 3000);
+        },
+
+        // --- Sending Data ---
+        async send(message) {
+          // ... (send logic remains the same) ...
+           if (!characteristicRX) {
+            this.addLog('Cannot send message: RX Characteristic not available.');
+            this.showUserMessage('Device not ready to receive commands.', true);
+            return;
+          }
+          if (!bleDevice || !bleDevice.gatt || !bleDevice.gatt.connected) {
+              this.addLog('Cannot send message: Device not connected.');
+              this.showUserMessage('Device is not connected.', true);
+              return;
+          }
+          try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(message);
+            await characteristicRX.writeValueWithoutResponse(data);
+            this.addLog(`Sent: ${message}`);
+          } catch (error) {
+            this.addLog(`Error sending message "${message}": ${error}`);
+            this.showUserMessage(`Error sending command: ${error.message}`, true);
+          }
+        },
+
+        // --- Application Actions ---
+        takeReading(type) { // type parameter is now only 'sample'
+            if (this.currentWavelength === 'None') {
+                this.showUserMessage('Please select a wavelength (λ) and perform zeroing first.', true);
+                return;
+            }
+            this.addLog(`Requesting reading for sample...`);
+            this.send('READ_SENSOR');
+        },
+
+        showZeroPrompt(wavelength, colorCmd) {
+            if (!this.deviceConnected) {
+                this.showUserMessage('Connect to the device first.', true);
+                return;
+            }
+            this.wavelengthToZero = wavelength;
+            this.commandColorToSend = colorCmd;
+            this.$bvModal.show('zeroPromptModal');
+            document.getElementById('set-zero-confirmation').style.display = 'none';
+            document.getElementById('set-zero-progress').style.display = 'none';
+            this.hideUserMessage();
+        },
+
+        handleZeroOk() {
+            this.addLog(`User confirmed zeroing for ${this.wavelengthToZero}. Sending command: LED_${this.commandColorToSend.toUpperCase()}_ON`);
+            this.send(`LED_${this.commandColorToSend.toUpperCase()}_ON`);
+            this.updateWavelength(this.wavelengthToZero);
+            this.currentAbsorbance = 'Zeroing...';
+            this.startSetZeroProgress();
+        },
+         handleZeroCancel() {
+            this.addLog(`User cancelled zeroing for ${this.wavelengthToZero}.`);
+            this.wavelengthToZero = '';
+            this.commandColorToSend = '';
+        },
+
+        startSetZeroProgress() {
+            // ... (zeroing progress logic remains the same) ...
+            this.resetUIState();
+            this.isZeroing = true;
+
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const progressBar = setZeroProgressDiv.querySelector('.progress-bar');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+
+            setZeroConfirmation.style.display = 'none';
+            setZeroProgressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', 0);
+            progressBar.classList.remove('bg-success', 'bg-danger');
+            progressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+
+            let progress = 0;
+            const visualDuration = 5000;
+            const intervalTime = 50;
+            const steps = visualDuration / intervalTime;
+            const increment = 100 / steps;
+
+            zeroingInterval = setInterval(() => {
+                if (!this.isZeroing) {
+                    clearInterval(zeroingInterval);
+                    zeroingInterval = null;
+                    return;
+                }
+                progress += increment;
+                if (progress >= 100) {
+                    progress = 100;
+                    progressBar.style.width = `100%`;
+                    progressBar.setAttribute('aria-valuenow', 100);
+                    clearInterval(zeroingInterval);
+                    zeroingInterval = null;
+                } else {
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.setAttribute('aria-valuenow', progress);
+                }
+            }, intervalTime);
+
+            // Timeout if ESP32 doesn't send z:DONE or z:ERROR
+            const confirmationTimeoutDuration = 20000; // 20 seconds timeout
+            this.addLog(`Setting zeroing confirmation timeout for ${confirmationTimeoutDuration}ms`);
+            zeroingTimeout = setTimeout(() => {
+                if (this.isZeroing) {
+                    this.addLog('Zeroing timed out waiting for ESP32 confirmation (z:DONE/z:ERROR).');
+                    this.endSetZeroProgress(false);
+                }
+                 zeroingTimeout = null;
+            }, confirmationTimeoutDuration);
+        },
+
+        endSetZeroProgress(success = true) {
+            // ... (zeroing end logic remains the same, uses currentWavelength) ...
+             if (!this.isZeroing) {
+                this.addLog('endSetZeroProgress called but not zeroing.');
+                return;
+            }
+            this.addLog(`Ending zeroing process for ${this.currentWavelength}. Success: ${success}`);
+
+            if (zeroingInterval) {
+                clearInterval(zeroingInterval);
+                zeroingInterval = null;
+            }
+             if (zeroingTimeout) {
+                clearTimeout(zeroingTimeout);
+                zeroingTimeout = null;
+                 this.addLog('Cleared zeroing confirmation timeout.');
+            }
+            this.isZeroing = false;
+
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const progressBar = setZeroProgressDiv.querySelector('.progress-bar');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+
+            progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            progressBar.style.width = '100%';
+
+            if (success) {
+                this.addLog(`Zeroing successful for ${this.currentWavelength}.`);
+                progressBar.classList.add('bg-success');
+                setZeroConfirmation.textContent = `Zeroing complete for ${this.currentWavelength}.`;
+                setZeroConfirmation.style.color = 'green';
+                this.currentAbsorbance = '0.0000';
+            } else {
+                this.addLog(`Zeroing failed for ${this.currentWavelength} (Error received or timeout).`);
+                progressBar.classList.add('bg-danger');
+                setZeroConfirmation.textContent = `Zeroing failed for ${this.currentWavelength}.`;
+                setZeroConfirmation.style.color = 'red';
+                this.currentAbsorbance = 'Error';
+                 this.updateWavelength('None');
+            }
+            setZeroConfirmation.style.display = 'block';
+
+            setTimeout(() => {
+                 if (setZeroProgressDiv) {
+                    setZeroProgressDiv.style.display = 'none';
+                 }
+            }, 2000);
+        },
+
+        // --- MODIFICATION: Added CSV Export Function ---
+        exportDataToCSV() {
+            if (this.tableData.length === 0) {
+                this.addLog('No sample data to export.');
+                this.showUserMessage('No sample data available to export.', true);
+                return;
+            }
+
+            this.addLog('Exporting sample data to CSV...');
+
+            const headers = ['Sample #', 'Time', 'Absorbance', 'Notes'];
+            let csvContent = headers.join(',') + '\n'; // Add header row
+
+            // Helper function to escape fields for CSV format
+            const escapeCSV = (field) => {
+                const stringField = String(field === null || field === undefined ? '' : field);
+                // Check if the field contains comma, double quote, or newline
+                if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                    // Escape double quotes by doubling them
+                    const escapedField = stringField.replace(/"/g, '""');
+                    // Enclose the entire field in double quotes
+                    return `"${escapedField}"`;
+                }
+                return stringField; // Return original if no special characters
+            };
+
+            // Add data rows
+            this.tableData.forEach((row, index) => {
+                const sampleNum = index + 1;
+                const time = row.time;
+                const absorbance = row.absorbance.toFixed(4); // Format absorbance
+                const notes = row.notes;
+
+                const fields = [sampleNum, time, absorbance, notes];
+                const escapedFields = fields.map(escapeCSV); // Escape each field
+                csvContent += escapedFields.join(',') + '\n'; // Join fields and add newline
+            });
+
+            // Create Blob and trigger download
+            try {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'spectrophotometer_samples.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                // Optional: Revoke URL later if memory is a concern, but usually okay for small files
+                // URL.revokeObjectURL(url);
+                this.addLog('Sample data export initiated.');
+            } catch (error) {
+                this.addLog(`Error exporting data to CSV: ${error}`);
+                this.showUserMessage('Error occurred during CSV export.', true);
+            }
+        }
+
+      },
+      mounted() {
+        this.addLog('App mounted. Ready.');
+      }
+    });
+
+  </script>
+</body>
+
+</html>
