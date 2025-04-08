@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>ESP32 Web Bluetooth Spectrophotometer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+  <style>
+    /* Custom styles for better mobile experience */
+    .btn {
+      font-size: 1.2rem;
+      /* Larger font size for buttons */
+      padding: 0.75rem 1.5rem;
+      /* Larger padding */
+    }
+
+    .table th,
+    .table td {
+      padding: 0.5rem;
+      /* Reduced padding for table cells */
+    }
+
+    #status-bar {
+      font-size: 1rem;
+      /* Adjust status bar font size */
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <b-tabs>
+      <b-tab title="Configuration" active>
+        <div class="container">
+          <div class="row">
+            <div class="col-12">
+              <div id="status">Status: Not connected</div>
+              <button id="connectButton" class="btn btn-primary btn-block">Connect</button>
+              <button id="disconnectButton" class="btn btn-secondary btn-block" disabled>Disconnect</button>
+              <input type="text" id="messageInput" placeholder="Enter message" class="form-control">
+              <button id="sendButton" class="btn btn-info btn-block" disabled>Send</button>
+              <button id="redLEDButton" class="btn btn-danger btn-block">Red LED</button>
+              <button id="greenLEDButton" class="btn btn-success btn-block">Green LED</button>
+              <button id="blueLEDButton" class="btn btn-primary btn-block">Blue LED</button>
+              <button id="setZeroButton" class="btn btn-warning btn-block">Set Zero</button>
+              <div id="set-zero-progress" class="progress" style="height: 5px; display: none;">
+                <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
+                  aria-valuemax="100"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </b-tab>
+      </b-tabs>
+    <div id="status-bar" class="fixed-bottom bg-light p-2 text-center">
+      <span>LED: None</span> | <span>Absorbance: N/A</span>
+    </div>
+  </div>
+
+  </body>
+
+</html>
