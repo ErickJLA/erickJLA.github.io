@@ -652,7 +652,7 @@
 
             // *** MODIFICATION START: Re-add timeout fallback ***
             // Timeout if ESP32 doesn't send z:DONE or z:ERROR within a reasonable time
-            const confirmationTimeoutDuration = 7000; // Wait 7 seconds for ESP32 response
+            const confirmationTimeoutDuration = 20000; // Wait 7 seconds for ESP32 response
             this.addLog(`Setting zeroing confirmation timeout for ${confirmationTimeoutDuration}ms`);
             zeroingTimeout = setTimeout(() => {
                 if (this.isZeroing) { // Check if zeroing wasn't already completed/failed
