@@ -381,14 +381,12 @@
 
     function showZeroPrompt(ledColor) {
       const promptMessage = `Insert blank sample and click OK to set zero with the ${ledColor} LED.`;
-      $('#zeroPromptMessage').text(promptMessage); // Set the message in the modal
-
-      zeroPromptModal.modal('show'); // Show the modal
-
+      $('#zeroPromptMessage').text(promptMessage);
+      zeroPromptModal.modal('show');
+    
       const okButton = document.getElementById('modal-ok-button');
       okButton.onclick = () => {
-        send(`LED_${ledColor.toUpperCase()}_ON`);
-        send('SET_ZERO');
+        send(`LED_${ledColor.toUpperCase()}_ON`); // Send only the LED command
         zeroPromptModal.modal('hide');
         app.currentLED = ledColor;
         app.updateStatusBar();
