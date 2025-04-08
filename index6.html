@@ -137,7 +137,7 @@
         </div>
       </b-tab>
     </b-tabs>
-    <div id="status-bar" class="fixed-bottom bg-light p-2 text-center">
+    <div id="status-bar" class="fixed-top bg-light p-2 text-center">
       <span>LED: None</span> | <span>Absorbance: N/A</span>
     </div>
 
@@ -169,67 +169,62 @@
   <script src="https://unpkg.com/bootstrap@4.5.3/dist/js/bootstrap.min.js"></script>
 
   <script>
-    let app;
-    app = new Vue({
-      el: '#app',
-      data() {
-        return {
-          curveData: [],
-          tableData: [],
-          logMessages: [],
-          currentLED: 'None',
-          currentAbsorbance: 'N/A',
-          setZeroProgress: false
-        };
-      },
-      methods: {
-        addCurveData(dataValue) {
-          const newRow = {
-            time: new Date().toLocaleTimeString('en-US', {
-              hour12: false
-            }),
-            absorbance: parseFloat(dataValue),
-            concentration: null
-          };
-          this.curveData.push(newRow);
-        },
-        addDataToTable(dataValue) {
-          const newRow = {
-            time: new Date().toLocaleTimeString('en-US', {
-              hour12: false
-            }),
-            absorbance: parseFloat(dataValue),
-            concentration: null
-          };
-          this.tableData.push(newRow);
-        },
-        addLog(message) {
-          const newLog = {
-            message: message,
-            timestamp: new Date()
-          };
-          this.logMessages.push(newLog);
-        },
-        validateNumber(row) {
-          const newValue = parseFloat(row.concentration);
-          if (isNaN(newValue)) {
-            row.concentration = isNaN(row.concentration) ? null : parseFloat(row.concentration);
-          } else {
-            row.concentration = newValue;
-          }
-        },
-        updateStatusBar() {
-          this.currentLED = this.currentLED;
-          this.currentAbsorbance = this.currentAbsorbance;
-        },
-        startSetZeroProgress() {
-          this.setZeroProgress = true;
-        },
-        endSetZeroProgress() {
-          this.setZeroProgress = false;
-        }
+let app;
+app = new Vue({
+  el: '#app',
+  data() {
+    return {
+      curveData: [],
+      tableData: [],
+      logMessages: [],
+      currentLED: 'None',
+      currentAbsorbance: 'N/A'
+    };
+  },
+  methods: {
+    addCurveData(dataValue) {
+      const newRow = {
+        time: new Date().toLocaleTimeString('en-US', {
+          hour12: false
+        }),
+        absorbance: parseFloat(dataValue),
+        concentration: null
+      };
+      this.curveData.push(newRow);
+    },
+    addDataToTable(dataValue) {
+      const newRow = {
+        time: new Date().toLocaleTimeString('en-US', {
+          hour12: false
+        }),
+        absorbance: parseFloat(dataValue),
+        concentration: null
+      };
+      this.tableData.push(newRow);
+    },
+    addLog(message) {
+      const newLog = {
+        message: message,
+        timestamp: new Date()
+      };
+      this.logMessages.push(newLog);
+    },
+    validateNumber(row) {
+      const newValue = parseFloat(row.concentration);
+      if (isNaN(newValue)) {
+        row.concentration = isNaN(row.concentration) ? null : parseFloat(row.concentration);
+      } else {
+        row.concentration = newValue;
       }
-    });
+    },
+    updateAbsorbance(absorbance) { // Dedicated method for absorbance
+      this.currentAbsorbance = absorbance;
+    },
+    updateLED(led) { // Dedicated method for LED
+      this.currentLED = led;
+    }
+  }
+});
   </script>
 
   <script>
@@ -295,26 +290,25 @@
       }
     }
 
-    function handleIncomingData(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      console.log('Received:', value);
+function handleIncomingData(event) {
+  const value = new TextDecoder().decode(event.target.value);
+  console.log('Received:', value);
 
-      if (value.startsWith('d:')) {
-        const dataValue = value.substring(2);
-        const activeTab = document.querySelector('.nav-link.active').textContent;
-        if (activeTab === 'Curve') {
-          app.addCurveData(dataValue);
-        } else if (activeTab === 'Samples') {
-          app.addDataToTable(dataValue);
-        } else {
-          app.addLog('Data received but no active data table selected.');
-        }
-        app.currentAbsorbance = parseFloat(dataValue).toFixed(3);
-        app.updateStatusBar();
-      } else {
-        app.addLog(value);
-      }
+  if (value.startsWith('d:')) {
+    const dataValue = value.substring(2);
+    const activeTab = document.querySelector('.nav-link.active').textContent;
+    if (activeTab === 'Curve') {
+      app.addCurveData(dataValue);
+    } else if (activeTab === 'Samples') {
+      app.addDataToTable(dataValue);
+    } else {
+      app.addLog('Data received but no active data table selected.');
     }
+    app.updateAbsorbance(parseFloat(dataValue).toFixed(8)); // Update absorbance
+  } else {
+    app.addLog(value);
+  }
+}
 
     function disconnect() {
       if (device) {
@@ -363,14 +357,17 @@
 
     redLEDButton.addEventListener('click', () => {
       showZeroPrompt('Red');
+      app.updateLED('Red');
     });
 
     greenLEDButton.addEventListener('click', () => {
       showZeroPrompt('Green');
+      app.updateLED('Green');
     });
 
     blueLEDButton.addEventListener('click', () => {
       showZeroPrompt('Blue');
+      app.updateLED('Blue');
     });
 
     function showZeroPrompt(ledColor) {
