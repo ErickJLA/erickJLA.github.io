@@ -258,28 +258,28 @@
     const CHARACTERISTIC_RX_UUID = 'daa5f483-1420-4f26-9095-165d8fc6a321'; // Web App to ESP32 (Write)
 
     // Global BLE variables
-    let bleDevice = null; // Use a distinct name to avoid confusion
+    let bleDevice = null;
     let characteristicTX = null;
     let characteristicRX = null;
-    let connectionCheckInterval = null; // Interval timer for connection polling
-    let zeroingInterval = null; // Interval timer for zeroing progress
+    let connectionCheckInterval = null;
+    let zeroingInterval = null; // Interval timer for zeroing progress bar VISUALS only
+    let zeroingTimeout = null; // Timeout handle for zeroing confirmation
 
     const app = new Vue({
       el: '#app',
       data() {
         return {
-          curveData: [], // Data for the calibration curve
-          tableData: [], // Data for sample readings
-          logMessages: [], // Log messages from ESP32 or app
-          currentLED: 'None', // Currently active LED ('None', 'Red', 'Green', 'Blue')
-          currentAbsorbance: 'N/A', // Last known absorbance value
-          deviceConnected: false, // BLE connection status
-          ledToZero: '', // Which LED is being zeroed
-          isZeroing: false // Flag if zeroing process is active
+          curveData: [],
+          tableData: [],
+          logMessages: [],
+          currentLED: 'None',
+          currentAbsorbance: 'N/A',
+          deviceConnected: false,
+          ledToZero: '',
+          isZeroing: false
         };
       },
       computed: {
-          // Computed property to display logs in reverse chronological order
           reversedLogMessages() {
               return [...this.logMessages].reverse();
           }
@@ -295,7 +295,7 @@
           const newRow = {
             time: new Date().toLocaleTimeString('en-US', { hour12: false }),
             absorbance: absorbance,
-            concentration: null // User inputs concentration for curve points
+            concentration: null
           };
           this.curveData.push(newRow);
           this.addLog(`Curve reading added: ${absorbance.toFixed(4)}`);
@@ -309,23 +309,20 @@
           const newRow = {
             time: new Date().toLocaleTimeString('en-US', { hour12: false }),
             absorbance: absorbance,
-            // Concentration would typically be calculated based on the curve
-            // For now, just storing absorbance
             concentration: null // Placeholder
           };
           this.tableData.push(newRow);
           this.addLog(`Sample reading added: ${absorbance.toFixed(4)}`);
         },
         addLog(message) {
-          console.log("LOG:", message); // Also log to console for debugging
+          console.log("LOG:", message);
           const newLog = {
             message: message,
             timestamp: new Date()
           };
           this.logMessages.push(newLog);
-          // Optional: Limit log size
           if (this.logMessages.length > 100) {
-            this.logMessages.shift(); // Remove the oldest log
+            this.logMessages.shift();
           }
         },
         clearLogs() {
@@ -333,17 +330,16 @@
             this.addLog("Logs cleared.");
         },
         validateNumber(row) {
-          // Ensure concentration is a valid number or null
           const val = row.concentration;
           if (val === '' || val === null || isNaN(parseFloat(val))) {
               row.concentration = null;
           } else {
-              row.concentration = parseFloat(val); // Ensure it's stored as a number
+              row.concentration = parseFloat(val);
           }
         },
         // --- UI Updates ---
         updateAbsorbance(absorbance) {
-          if (this.isZeroing) return; // Don't update during zeroing display
+          if (this.isZeroing) return;
           const numAbsorbance = parseFloat(absorbance);
           this.currentAbsorbance = isNaN(numAbsorbance) ? 'N/A' : numAbsorbance.toFixed(4);
         },
@@ -353,27 +349,26 @@
         },
         setDeviceConnected(connected) {
           this.deviceConnected = connected;
-          this.currentAbsorbance = 'N/A'; // Reset absorbance on connect/disconnect
-          this.currentLED = 'None'; // Reset LED status
+          this.currentAbsorbance = 'N/A';
+          this.currentLED = 'None';
            if (!connected) {
                this.addLog('Device disconnected.');
-               this.resetUIState(); // Reset UI elements on disconnect
+               this.resetUIState();
            } else {
                this.addLog('Device connected successfully.');
            }
-           this.hideUserMessage(); // Clear any previous messages
+           this.hideUserMessage();
         },
         resetUIState() {
-            // Reset progress bar and confirmation message if disconnect happens during zeroing
             this.isZeroing = false;
             if (zeroingInterval) clearInterval(zeroingInterval);
+            if (zeroingTimeout) clearTimeout(zeroingTimeout); // Clear confirmation timeout
+            zeroingInterval = null;
+            zeroingTimeout = null;
             const setZeroProgressDiv = document.getElementById('set-zero-progress');
             const setZeroConfirmation = document.getElementById('set-zero-confirmation');
             setZeroProgressDiv.style.display = 'none';
             setZeroConfirmation.style.display = 'none';
-            // Consider resetting table data or not based on requirements
-            // this.curveData = [];
-            // this.tableData = [];
         },
         showUserMessage(message, isError = false) {
             const msgDiv = document.getElementById('user-message');
@@ -402,20 +397,19 @@
           this.showUserMessage('Scanning for devices... Please select your ESP32.');
 
           try {
-            // Request device connection
-            // Using acceptAllDevices: true as a workaround because filtering by service UUID
-            // wasn't working. This implies the ESP32 might not be advertising the service UUID.
-            // The user will need to manually select the correct device from the list shown by the browser.
+            // *** MODIFICATION START: Re-enabled filtering ***
+            // Assuming ESP32 name was shortened to allow service UUID advertisement
+            this.addLog(`Filtering for Service UUID: ${SERVICE_UUID}`);
             bleDevice = await navigator.bluetooth.requestDevice({
-              acceptAllDevices: true, // Show all devices
-              // filters: [{ services: [SERVICE_UUID] }], // Filter removed/commented out
-              optionalServices: [SERVICE_UUID] // Still need to request permission for the service
+              // acceptAllDevices: true, // Filter is active again
+              filters: [{ services: [SERVICE_UUID] }], // Filter by service UUID
+              optionalServices: [SERVICE_UUID] // Still request optional service access
             });
+            // *** MODIFICATION END ***
 
             this.addLog(`Connecting to device: ${bleDevice.name || bleDevice.id}...`);
             this.showUserMessage(`Connecting to ${bleDevice.name || 'device'}...`);
 
-            // Add disconnection listener *before* connecting GATT
             bleDevice.addEventListener('gattserverdisconnected', this.onDisconnected);
 
             const server = await bleDevice.gatt.connect();
@@ -424,33 +418,28 @@
             const service = await server.getPrimaryService(SERVICE_UUID);
             this.addLog('Got primary service.');
 
-            // Get characteristics
             characteristicTX = await service.getCharacteristic(CHARACTERISTIC_TX_UUID);
             characteristicRX = await service.getCharacteristic(CHARACTERISTIC_RX_UUID);
             this.addLog('Got characteristics TX and RX.');
 
-            // Start notifications on TX characteristic
             await characteristicTX.startNotifications();
             characteristicTX.addEventListener('characteristicvaluechanged', this.handleIncomingData);
             this.addLog('Started notifications on TX characteristic.');
 
-            // Update UI state
             this.setDeviceConnected(true);
-            this.showUserMessage(`Connected to ${bleDevice.name || 'device'}!`, false); // Show success message
+            this.showUserMessage(`Connected to ${bleDevice.name || 'device'}!`, false);
 
-            // Start connection monitoring as a fallback
             this.startConnectionMonitoring();
 
           } catch (error) {
-            // Handle user cancelling the device selection prompt
             if (error.name === 'NotFoundError') {
-                 this.addLog('User cancelled device selection.');
-                 this.showUserMessage('Device selection cancelled.');
+                 this.addLog('Device selection cancelled or no matching device found.');
+                 this.showUserMessage('Device selection cancelled or no matching device found.');
             } else {
                 this.addLog(`Connection failed: ${error}`);
                 this.showUserMessage(`Connection failed: ${error.message}`, true);
             }
-            this.disconnectCleanup(); // Ensure cleanup if connection fails midway or is cancelled
+            this.disconnectCleanup();
           }
         },
 
@@ -458,12 +447,11 @@
         handleIncomingData(event) {
           try {
             const value = new TextDecoder().decode(event.target.value);
-            // this.addLog(`Raw data received: ${value}`); // Log raw for debug if needed
 
             if (value.startsWith('d:')) { // Discrete data reading
               const dataValue = value.substring(2);
               this.addLog(`Received data reading: ${dataValue}`);
-              const activeTabEl = document.querySelector('.tab-pane.active'); // Find active tab content
+              const activeTabEl = document.querySelector('.tab-pane.active');
               if (activeTabEl) {
                   const tableId = activeTabEl.querySelector('table')?.id;
                   if (tableId === 'curve-table') {
@@ -478,18 +466,25 @@
 
             } else if (value.startsWith('a:')) { // Continuous absorbance update
               const absorbanceValue = value.substring(2);
-              this.updateAbsorbance(absorbanceValue); // Update status bar display only
+              this.updateAbsorbance(absorbanceValue);
 
             } else if (value.startsWith('z:')) { // Zeroing confirmation/status
                 const status = value.substring(2);
                 this.addLog(`Zeroing status received: ${status}`);
-                // *** MODIFICATION START ***
-                // We only explicitly handle ERROR messages now.
-                // Success is assumed by the timer completing unless an error is received.
-                if (status === 'ERROR') {
-                    this.endSetZeroProgress(false); // Mark as failure ONLY if ESP32 sends "z:ERROR"
+                // *** MODIFICATION START: Handle z:DONE and z:ERROR ***
+                if (this.isZeroing) { // Only process if we are expecting a zeroing response
+                    if (status === 'DONE') {
+                        this.endSetZeroProgress(true); // Mark as success
+                    } else if (status === 'ERROR') {
+                        this.endSetZeroProgress(false); // Mark as failure
+                    } else {
+                        this.addLog(`Unknown zeroing status: ${status}`);
+                        // Optionally treat unknown status as failure
+                        // this.endSetZeroProgress(false);
+                    }
+                } else {
+                     this.addLog(`Received zeroing status '${status}' but not currently zeroing.`);
                 }
-                // We no longer need to handle 'z:DONE' here, as success is assumed by the timer finishing.
                 // *** MODIFICATION END ***
             } else { // Assume it's a general log message from ESP32
               this.addLog(`ESP32: ${value}`);
@@ -499,7 +494,6 @@
           }
         },
 
-        // Handler for the 'gattserverdisconnected' event
         onDisconnected(event) {
           this.addLog('GATT Server disconnected event received.');
           this.disconnectCleanup();
@@ -513,11 +507,14 @@
             connectionCheckInterval = null;
             this.addLog('Cleared connection check interval.');
           }
+          // Clear zeroing state on disconnect
+          this.resetUIState();
+
           if (bleDevice) {
               try {
                  bleDevice.removeEventListener('gattserverdisconnected', this.onDisconnected);
               } catch(e) {
-                 this.addLog("Could not remove disconnect listener (device might already be gone).");
+                 this.addLog("Could not remove disconnect listener.");
               }
           }
           if (characteristicTX) {
@@ -531,7 +528,11 @@
           characteristicTX = null;
           characteristicRX = null;
           bleDevice = null;
-          this.setDeviceConnected(false);
+          // Update Vue state LAST, after cleanup
+          // Check if already disconnected to avoid infinite loops if cleanup called multiple times
+          if (this.deviceConnected) {
+             this.setDeviceConnected(false);
+          }
         },
 
         // --- Connection Monitoring (Fallback) ---
@@ -543,7 +544,7 @@
           connectionCheckInterval = setInterval(() => {
             if (bleDevice && bleDevice.gatt && !bleDevice.gatt.connected) {
               this.addLog('Connection monitoring detected disconnection.');
-              this.disconnectCleanup();
+              this.disconnectCleanup(); // Call cleanup directly
             }
           }, 3000);
         },
@@ -598,7 +599,7 @@
             this.send(`LED_${this.ledToZero.toUpperCase()}_ON`);
             this.updateLED(this.ledToZero);
             this.currentAbsorbance = 'Zeroing...';
-            this.startSetZeroProgress();
+            this.startSetZeroProgress(); // Start waiting for confirmation
         },
          handleZeroCancel() {
             this.addLog(`User cancelled zeroing for ${this.ledToZero} LED.`);
@@ -606,7 +607,10 @@
         },
 
         startSetZeroProgress() {
-            this.isZeroing = true;
+            // Clear any previous timers/state first
+            this.resetUIState();
+            this.isZeroing = true; // Set zeroing flag
+
             const setZeroProgressDiv = document.getElementById('set-zero-progress');
             const progressBar = setZeroProgressDiv.querySelector('.progress-bar');
             const setZeroConfirmation = document.getElementById('set-zero-confirmation');
@@ -619,58 +623,67 @@
             progressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
 
             let progress = 0;
-            const duration = 5000; // Assume zeroing takes 5 seconds
+            // Duration for visual feedback ONLY. Actual success/fail depends on ESP32 message or timeout.
+            const visualDuration = 5000; // Visual progress over 5 seconds
             const intervalTime = 50;
-            const steps = duration / intervalTime;
+            const steps = visualDuration / intervalTime;
             const increment = 100 / steps;
 
-            if (zeroingInterval) clearInterval(zeroingInterval);
-
+            // Interval only updates the progress bar visually
             zeroingInterval = setInterval(() => {
-                if (!this.isZeroing) { // Check if endSetZeroProgress was called early (e.g., by z:ERROR)
+                if (!this.isZeroing) { // Stop if zeroing ended early (success/fail/disconnect)
                     clearInterval(zeroingInterval);
+                    zeroingInterval = null;
                     return;
                 }
-
                 progress += increment;
                 if (progress >= 100) {
                     progress = 100;
-                    progressBar.style.width = `${progress}%`;
-                    progressBar.setAttribute('aria-valuenow', progress);
-                    clearInterval(zeroingInterval); // Stop the interval
-                    // *** MODIFICATION START ***
-                    // Assume success now that the timer is complete, unless endSetZeroProgress(false) was already called by receiving z:ERROR
-                    if (this.isZeroing) { // Double check isZeroing flag hasn't been set to false by an error message
-                       this.endSetZeroProgress(true);
-                    }
-                    // *** MODIFICATION END ***
+                    // Keep bar full while waiting for confirmation or timeout
+                    progressBar.style.width = `100%`;
+                    progressBar.setAttribute('aria-valuenow', 100);
+                    clearInterval(zeroingInterval); // Stop visual updates
+                    zeroingInterval = null;
                 } else {
                     progressBar.style.width = `${progress}%`;
                     progressBar.setAttribute('aria-valuenow', progress);
                 }
             }, intervalTime);
 
-            // *** MODIFICATION START ***
-            // Remove the timeout fallback that assumed failure.
-            // Failure is now ONLY triggered by receiving 'z:ERROR'.
-            // setTimeout(() => {
-            //    if (this.isZeroing) {
-            //        this.addLog('Zeroing timed out waiting for ESP32 confirmation.');
-            //        this.endSetZeroProgress(false); // Assume failure on timeout
-            //    }
-            // }, duration + 1000);
+            // *** MODIFICATION START: Re-add timeout fallback ***
+            // Timeout if ESP32 doesn't send z:DONE or z:ERROR within a reasonable time
+            const confirmationTimeoutDuration = 7000; // Wait 7 seconds for ESP32 response
+            this.addLog(`Setting zeroing confirmation timeout for ${confirmationTimeoutDuration}ms`);
+            zeroingTimeout = setTimeout(() => {
+                if (this.isZeroing) { // Check if zeroing wasn't already completed/failed
+                    this.addLog('Zeroing timed out waiting for ESP32 confirmation (z:DONE/z:ERROR).');
+                    this.endSetZeroProgress(false); // Assume failure on timeout
+                }
+                 zeroingTimeout = null; // Clear timeout handle
+            }, confirmationTimeoutDuration);
             // *** MODIFICATION END ***
         },
 
         endSetZeroProgress(success = true) {
             // Check if the process hasn't already been marked as ended
-            if (!this.isZeroing) return;
+            if (!this.isZeroing) {
+                this.addLog('endSetZeroProgress called but not zeroing.');
+                return;
+            }
 
-            // Ensure interval is cleared if called early (e.g., by z:ERROR)
+            this.addLog(`Ending zeroing process. Success: ${success}`);
+
+            // Clear timers immediately
             if (zeroingInterval) {
                 clearInterval(zeroingInterval);
                 zeroingInterval = null;
             }
+             if (zeroingTimeout) {
+                clearTimeout(zeroingTimeout);
+                zeroingTimeout = null;
+                 this.addLog('Cleared zeroing confirmation timeout.');
+            }
+
             this.isZeroing = false; // Mark zeroing as complete
 
             const setZeroProgressDiv = document.getElementById('set-zero-progress');
@@ -678,10 +691,10 @@
             const setZeroConfirmation = document.getElementById('set-zero-confirmation');
 
             progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
-            progressBar.style.width = '100%';
+            progressBar.style.width = '100%'; // Ensure bar is full
 
             if (success) {
-                this.addLog(`Zeroing assumed successful for ${this.currentLED} LED.`);
+                this.addLog(`Zeroing successful for ${this.currentLED} LED.`);
                 progressBar.classList.add('bg-success');
                 setZeroConfirmation.textContent = `Zeroing complete for ${this.currentLED} LED.`;
                 setZeroConfirmation.style.color = 'green';
@@ -692,15 +705,15 @@
                 setZeroConfirmation.textContent = `Zeroing failed for ${this.currentLED} LED.`;
                 setZeroConfirmation.style.color = 'red';
                 this.currentAbsorbance = 'Error'; // Indicate error
-                this.updateLED('None'); // Reset LED state if zeroing failed
+                // Optionally reset LED if zeroing failed? Depends on desired behavior.
+                // this.updateLED('None');
             }
 
             setZeroConfirmation.style.display = 'block';
 
+            // Hide progress bar after a short delay
             setTimeout(() => {
-                // Check if the confirmation message is still the 'failed' one before hiding progress
-                // This prevents hiding a success bar if an error came *after* the timer finished but *before* this timeout
-                 if (setZeroConfirmation.style.display !== 'none') {
+                 if (setZeroProgressDiv) { // Check if element still exists
                     setZeroProgressDiv.style.display = 'none';
                  }
             }, 2000);
