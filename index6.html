@@ -20,6 +20,9 @@
 
     #status-bar {
       font-size: 1rem;
+      position: sticky; /* Use sticky positioning */
+      top: 0;
+      z-index: 1000;
     }
 
     #set-zero-progress {
@@ -138,7 +141,7 @@
       </b-tab>
     </b-tabs>
     <div id="status-bar" class="fixed-top bg-light p-2 text-center">
-      <span>LED: None</span> | <span>Absorbance: N/A</span>
+      <span id="led-status">LED: None</span> | <span id="absorbance-status">Absorbance: N/A</span>
     </div>
 
     <div class="modal fade" id="zeroPromptModal" tabindex="-1" role="dialog" aria-labelledby="zeroPromptModalLabel"
@@ -152,7 +155,7 @@
             </button>
           </div>
           <div class="modal-body" id="zeroPromptMessage">
-            Insert blank sample and click OK to set zero.
+            Insert blank sample and click OK to set zero with the selected LED.
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -161,7 +164,8 @@
         </div>
       </div>
     </div>
-    </div>
+
+  </div>
 
   <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
   <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
@@ -169,77 +173,71 @@
   <script src="https://unpkg.com/bootstrap@4.5.3/dist/js/bootstrap.min.js"></script>
 
   <script>
-let app;
-app = new Vue({
-  el: '#app',
-  data() {
-    return {
-      curveData: [],
-      tableData: [],
-      logMessages: [],
-      currentLED: 'None',
-      currentAbsorbance: 'N/A'
-    };
-  },
-  methods: {
-    addCurveData(dataValue) {
-      const newRow = {
-        time: new Date().toLocaleTimeString('en-US', {
-          hour12: false
-        }),
-        absorbance: parseFloat(dataValue),
-        concentration: null
-      };
-      this.curveData.push(newRow);
-    },
-    addDataToTable(dataValue) {
-      const newRow = {
-        time: new Date().toLocaleTimeString('en-US', {
-          hour12: false
-        }),
-        absorbance: parseFloat(dataValue),
-        concentration: null
-      };
-      this.tableData.push(newRow);
-    },
-    addLog(message) {
-      const newLog = {
-        message: message,
-        timestamp: new Date()
-      };
-      this.logMessages.push(newLog);
-    },
-    validateNumber(row) {
-      const newValue = parseFloat(row.concentration);
-      if (isNaN(newValue)) {
-        row.concentration = isNaN(row.concentration) ? null : parseFloat(row.concentration);
-      } else {
-        row.concentration = newValue;
+    let app;
+    app = new Vue({
+      el: '#app',
+      data() {
+        return {
+          curveData: [],
+          tableData: [],
+          logMessages: [],
+          currentLED: 'None',
+          currentAbsorbance: 'N/A'
+        };
+      },
+      methods: {
+        addCurveData(dataValue) {
+          const newRow = {
+            time: new Date().toLocaleTimeString('en-US', {
+              hour12: false
+            }),
+            absorbance: parseFloat(dataValue),
+            concentration: null
+          };
+          this.curveData.push(newRow);
+        },
+        addDataToTable(dataValue) {
+          const newRow = {
+            time: new Date().toLocaleTimeString('en-US', {
+              hour12: false
+            }),
+            absorbance: parseFloat(dataValue),
+            concentration: null
+          };
+          this.tableData.push(newRow);
+        },
+        addLog(message) {
+          const newLog = {
+            message: message,
+            timestamp: new Date()
+          };
+          this.logMessages.push(newLog);
+        },
+        validateNumber(row) {
+          const newValue = parseFloat(row.concentration);
+          if (isNaN(newValue)) {
+            row.concentration = isNaN(row.concentration) ? null : parseFloat(row.concentration);
+          } else {
+            row.concentration = newValue;
+          }
+        }
+      },
+      watch: { // Use a watcher for more reliable updates
+        currentLED(newVal) {
+          $('#led-status').text(`LED: ${newVal}`); // Update DOM directly
+        },
+        currentAbsorbance(newVal) {
+          $('#absorbance-status').text(`Absorbance: ${newVal}`); // Update DOM directly
+        }
       }
-    },
-    updateAbsorbance(absorbance) { // Dedicated method for absorbance
-      this.currentAbsorbance = absorbance;
-    },
-    updateLED(led) { // Dedicated method for LED
-      this.currentLED = led;
-    }
-  }
-});
-  </script>
+    });
 
-  <script>
     const connectButton = document.getElementById('connectButton');
-    //const disconnectButton = document.getElementById('disconnectButton');
-    //const messageInput = document.getElementById('messageInput');
-    //const sendButton = document.getElementById('sendButton');
-    const statusDiv = document.getElementById('status');
     const takeCurveReadingButton = document.getElementById('takeCurveReadingButton');
     const takeSampleReadingButton = document.getElementById('takeSampleReadingButton');
-    //const setZeroButton = document.getElementById('setZeroButton');
     const redLEDButton = document.getElementById('redLEDButton');
     const greenLEDButton = document.getElementById('greenLEDButton');
     const blueLEDButton = document.getElementById('blueLEDButton');
-    const statusBar = document.getElementById('status-bar');
     const setZeroProgressDiv = document.getElementById('set-zero-progress');
     const progressBar = document.querySelector('#set-zero-progress .progress-bar');
     const zeroPromptModal = $('#zeroPromptModal');
@@ -276,11 +274,8 @@ app = new Vue({
         characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
         console.log('Notifications enabled');
 
-        //sendButton.disabled = false;
-
         statusDiv.textContent = 'Status: Connected';
         connectButton.disabled = true;
-        //disconnectButton.disabled = false;
 
         alert('Connected successfully!');
 
@@ -290,41 +285,23 @@ app = new Vue({
       }
     }
 
-function handleIncomingData(event) {
-  const value = new TextDecoder().decode(event.target.value);
-  console.log('Received:', value);
+    function handleIncomingData(event) {
+      const value = new TextDecoder().decode(event.target.value);
+      console.log('Received:', value);
 
-  if (value.startsWith('d:')) {
-    const dataValue = value.substring(2);
-    const activeTab = document.querySelector('.nav-link.active').textContent;
-    if (activeTab === 'Curve') {
-      app.addCurveData(dataValue);
-    } else if (activeTab === 'Samples') {
-      app.addDataToTable(dataValue);
-    } else {
-      app.addLog('Data received but no active data table selected.');
-    }
-    app.updateAbsorbance(parseFloat(dataValue).toFixed(8)); // Update absorbance
-  } else {
-    app.addLog(value);
-  }
-}
-
-    function disconnect() {
-      if (device) {
-        if (characteristicTX) {
-          characteristicTX.removeEventListener('characteristicvaluechanged', handleIncomingData);
-          characteristicTX.stopNotifications()
-            .catch(error => {
-              console.error('Error stopping notifications:', error);
-            });
+      if (value.startsWith('d:')) {
+        const dataValue = value.substring(2);
+        const activeTab = document.querySelector('.nav-link.active').textContent;
+        if (activeTab === 'Curve') {
+          app.addCurveData(dataValue);
+        } else if (activeTab === 'Samples') {
+          app.addDataToTable(dataValue);
+        } else {
+          app.addLog('Data received but no active data table selected.');
         }
-        device.gatt.disconnect();
-
-        statusDiv.textContent = 'Status: Disconnected';
-        connectButton.disabled = false;
-        //disconnectButton.disabled = true;
-        //sendButton.disabled = true;
+        app.updateAbsorbance(parseFloat(dataValue).toFixed(8)); // Update absorbance
+      } else {
+        app.addLog(value);
       }
     }
 
@@ -334,7 +311,6 @@ function handleIncomingData(event) {
           const encoder = new TextEncoder();
           const data = encoder.encode(message);
           await characteristicRX.writeValue(data);
-          //messageInput.value = '';
           console.log('Sent message:', message);
         } catch (error) {
           console.error('Error sending message:', error);
@@ -344,8 +320,6 @@ function handleIncomingData(event) {
     }
 
     connectButton.addEventListener('click', connect);
-    //disconnectButton.addEventListener('click', disconnect);
-    //sendButton.addEventListener('click', () => send(messageInput.value));
 
     takeCurveReadingButton.addEventListener('click', () => {
       send('READ_SENSOR');
@@ -357,17 +331,14 @@ function handleIncomingData(event) {
 
     redLEDButton.addEventListener('click', () => {
       showZeroPrompt('Red');
-      app.updateLED('Red');
     });
 
     greenLEDButton.addEventListener('click', () => {
       showZeroPrompt('Green');
-      app.updateLED('Green');
     });
 
     blueLEDButton.addEventListener('click', () => {
       showZeroPrompt('Blue');
-      app.updateLED('Blue');
     });
 
     function showZeroPrompt(ledColor) {
@@ -380,8 +351,7 @@ function handleIncomingData(event) {
       okButton.onclick = () => {
         send(`LED_${ledColor.toUpperCase()}_ON`);
         zeroPromptModal.modal('hide');
-        app.currentLED = ledColor;
-        app.updateStatusBar();
+        app.updateLED(ledColor); // Update LED
         app.startSetZeroProgress();
         setZeroProgressDiv.style.display = 'block';
         progressBar.style.width = '0%';
