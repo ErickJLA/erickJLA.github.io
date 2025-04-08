@@ -291,7 +291,6 @@
         characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
         console.log('Notifications enabled');
 
-        statusDiv.textContent = 'Status: Connected';
         connectButton.disabled = true;
 
         // Update connection status in status bar
@@ -339,7 +338,6 @@
           console.log('Sent message:', message);
         } catch (error) {
           console.error('Error sending message:', error);
-          statusDiv.textContent = 'Error sending message: ' + error.message;
         }
       }
     }
