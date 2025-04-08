@@ -339,22 +339,32 @@
     });
 
     redLEDButton.addEventListener('click', () => {
-      send('LED_RED_ON');
-      app.currentLED = 'Red';
-      app.updateStatusBar();
+      showZeroPrompt('Red');
     });
-
+    
     greenLEDButton.addEventListener('click', () => {
-      send('LED_GREEN_ON');
-      app.currentLED = 'Green';
-      app.updateStatusBar();
+      showZeroPrompt('Green');
     });
-
+    
     blueLEDButton.addEventListener('click', () => {
-      send('LED_BLUE_ON');
-      app.currentLED = 'Blue';
-      app.updateStatusBar();
+      showZeroPrompt('Blue');
     });
+    
+    function showZeroPrompt(ledColor) {
+      const promptMessage = `Insert blank sample and click OK to set zero with the ${ledColor} LED.`;
+      // Code to display the modal with promptMessage
+      // Disable other buttons
+    
+      const okButton = document.getElementById('modal-ok-button'); // Example ID
+      okButton.addEventListener('click', () => {
+        send(`LED_${ledColor.toUpperCase()}_ON`); // Send LED command
+        send('SET_ZERO'); // Send SET_ZERO command
+        // Code to close the modal
+        startSetZeroProgress(); // Show progress bar
+        app.currentLED = ledColor;
+        app.updateStatusBar();
+      });
+    }
 
     // Periodic update (adjust interval as needed)
     setInterval(() => {
