@@ -23,13 +23,14 @@
     }
 
     #set-zero-progress {
-      height: 5px;
+      height: 15px;
       display: none;
+      margin-bottom: 10px;
     }
 
     /* Ensure progress bar animation */
     .progress-bar {
-      transition: width 0.5s linear; /* Adjust timing as needed */
+      transition: width 0.5s linear;
     }
   </style>
 </head>
@@ -51,8 +52,11 @@
               <button id="blueLEDButton" class="btn btn-primary btn-block">Blue LED</button>
               <button id="setZeroButton" class="btn btn-warning btn-block">Set Zero</button>
               <div id="set-zero-progress" class="progress">
-                <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
-                  aria-valuemax="100"></div>
+                <div class="progress-bar progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0"
+                  aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+              <div id="set-zero-confirmation" style="display: none; text-align: center; margin-top: 10px;">
+                Color LED selected and set to zero.
               </div>
             </div>
           </div>
@@ -248,6 +252,7 @@
     const setZeroProgressDiv = document.getElementById('set-zero-progress');
     const progressBar = document.querySelector('#set-zero-progress .progress-bar');
     const zeroPromptModal = $('#zeroPromptModal');
+    const setZeroConfirmation = document.getElementById('set-zero-confirmation'); // Get confirmation element
 
     let device = null;
     let characteristicTX = null;
@@ -364,10 +369,11 @@
       send('SET_ZERO');
       app.currentAbsorbance = 'Setting...';
       app.updateStatusBar();
-      app.startSetZeroProgress(); // Set the flag
+      app.startSetZeroProgress();
       setZeroProgressDiv.style.display = 'block';
       progressBar.style.width = '0%';
       progressBar.setAttribute('aria-valuenow', 0);
+      setZeroConfirmation.style.display = 'none'; // Hide confirmation initially
 
       let progress = 0;
       zeroingInterval = setInterval(() => {
@@ -378,7 +384,8 @@
           clearInterval(zeroingInterval);
           setTimeout(() => {
             setZeroProgressDiv.style.display = 'none';
-            app.endSetZeroProgress(); // Clear the flag
+            app.endSetZeroProgress();
+            setZeroConfirmation.style.display = 'block'; // Show confirmation
           }, 500);
         }
       }, 500);
@@ -400,6 +407,7 @@
       const promptMessage = `Insert blank sample and click OK to set zero with the ${ledColor} LED.`;
       $('#zeroPromptMessage').text(promptMessage);
       zeroPromptModal.modal('show');
+      setZeroConfirmation.style.display = 'none'; // Hide confirmation
 
       const okButton = document.getElementById('modal-ok-button');
       okButton.onclick = () => {
@@ -407,7 +415,7 @@
         zeroPromptModal.modal('hide');
         app.currentLED = ledColor;
         app.updateStatusBar();
-        app.startSetZeroProgress(); // Set the flag
+        app.startSetZeroProgress();
         setZeroProgressDiv.style.display = 'block';
         progressBar.style.width = '0%';
         progressBar.setAttribute('aria-valuenow', 0);
@@ -421,7 +429,8 @@
             clearInterval(zeroingInterval);
             setTimeout(() => {
               setZeroProgressDiv.style.display = 'none';
-              app.endSetZeroProgress(); // Clear the flag
+              app.endSetZeroProgress();
+              setZeroConfirmation.style.display = 'block'; // Show confirmation
             }, 500);
           }
         }, 500);
