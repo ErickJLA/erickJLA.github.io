@@ -405,7 +405,7 @@
             // Request device connection
             // **FIX:** Assign to the global bleDevice variable
             bleDevice = await navigator.bluetooth.requestDevice({
-              acceptAllDevices: false, // More secure to filter by service
+              acceptAllDevices: true, // More secure to filter by service
               filters: [{ services: [SERVICE_UUID] }],
               // optionalServices: [SERVICE_UUID] // Already specified in filters
             });
