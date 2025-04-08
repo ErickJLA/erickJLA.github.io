@@ -4,30 +4,46 @@
 <head>
   <title>ESP32 Web Bluetooth Spectrophotometer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
-  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@2.22.0/dist/bootstrap-vue.min.css" />
   <style>
-    /* Custom styles for better mobile experience */
+    /* Custom styles for better mobile experience and layout */
+    body {
+      padding-top: 60px; /* Add padding for the fixed status bar */
+      font-family: sans-serif; /* Use a standard sans-serif font */
+    }
+
     .btn {
-      font-size: 1.2rem;
-      padding: 0.75rem 1.5rem;
+      font-size: 1.1rem; /* Slightly smaller buttons */
+      padding: 0.6rem 1.2rem;
+      margin-bottom: 0.5rem; /* Add space between buttons */
     }
 
     .table th,
     .table td {
       padding: 0.5rem;
+      vertical-align: middle; /* Align table cell content vertically */
     }
 
     #status-bar {
-      font-size: 1rem;
-      padding: 0.5rem;
+      font-size: 0.9rem; /* Slightly smaller status text */
+      padding: 0.5rem 1rem;
       text-align: center;
       background-color: #f8f9fa;
       border-bottom: 1px solid #dee2e6;
+      position: fixed; /* Keep status bar visible */
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1030; /* Ensure it's above other content */
+      display: flex;
+      justify-content: space-around; /* Distribute status items */
+      align-items: center;
     }
 
     #connection-status {
       color: red;
+      font-weight: bold;
     }
 
     #connection-status.connected {
@@ -36,7 +52,8 @@
 
     #set-zero-progress {
       height: 15px;
-      display: none;
+      display: none; /* Hide progress bar initially */
+      margin-top: 10px; /* Add space above progress bar */
       margin-bottom: 10px;
     }
 
@@ -44,400 +61,648 @@
     .progress-bar {
       transition: width 0.5s linear;
     }
+
+    /* Style the tabs */
+    .nav-tabs .nav-link {
+        font-size: 1rem;
+    }
+
+    /* Add some padding within tab content */
+    .tab-content {
+        padding-top: 1rem;
+    }
+
+    /* Center the configuration buttons */
+    .config-buttons .col-12 {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+     .config-buttons .btn {
+        width: 80%; /* Make buttons slightly narrower */
+        max-width: 300px; /* Set a max width */
+     }
+
+     /* Style the modal */
+    .modal-header {
+        background-color: #007bff;
+        color: white;
+    }
+    .modal-title {
+        font-weight: bold;
+    }
+    .close {
+        color: white;
+        opacity: 0.8;
+    }
+    .modal-footer .btn {
+        margin-left: 0.5rem;
+    }
+
+    /* Add padding to containers */
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
   </style>
 </head>
 
 <body>
   <div id="app">
     <div id="status-bar">
-      <span id="connection-status">● Disconnected</span> | <span id="led-status">LED: None</span> | <span
-        id="absorbance-status">Absorbance: N/A</span>
+      <span id="connection-status" :class="{ connected: deviceConnected }">
+        ● {{ deviceConnected ? 'Connected' : 'Disconnected' }}
+      </span>
+      <span id="led-status">LED: {{ currentLED }}</span>
+      <span id="absorbance-status">Absorbance: {{ currentAbsorbance }}</span>
     </div>
 
-    <b-tabs>
+    <b-tabs content-class="mt-3" fill>
       <b-tab title="Configuration" active>
-        <div class="container">
+        <div class="container config-buttons">
           <div class="row">
             <div class="col-12">
-              <button id="connectButton" class="btn btn-primary btn-block">Connect</button>
-              <button id="redLEDButton" class="btn btn-danger btn-block">Red LED</button>
-              <button id="greenLEDButton" class="btn btn-success btn-block">Green LED</button>
-              <button id="blueLEDButton" class="btn btn-primary btn-block">Blue LED</button>
-              <div id="set-zero-progress" class="progress">
-                <div class="progress-bar progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0"
-                  aria-valuemin="0" aria-valuemax="100"></div>
+              <button id="connectButton" class="btn btn-primary btn-block" @click="connect" :disabled="deviceConnected">
+                {{ deviceConnected ? 'Connected' : 'Connect' }}
+              </button>
+              <hr> <button id="redLEDButton" class="btn btn-danger btn-block" @click="showZeroPrompt('Red')" :disabled="!deviceConnected">
+                Red LED & Zero
+              </button>
+              <button id="greenLEDButton" class="btn btn-success btn-block" @click="showZeroPrompt('Green')" :disabled="!deviceConnected">
+                Green LED & Zero
+              </button>
+              <button id="blueLEDButton" class="btn btn-primary btn-block" @click="showZeroPrompt('Blue')" :disabled="!deviceConnected">
+                Blue LED & Zero
+              </button>
+              <div id="set-zero-progress" class="progress w-100" style="max-width: 300px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
               </div>
-              <div id="set-zero-confirmation" style="display: none; text-align: center; margin-top: 10px;">
-                Color LED selected and set to zero.
+              <div id="set-zero-confirmation" style="display: none; text-align: center; margin-top: 10px; color: green; font-weight: bold;">
+                Zeroing complete for {{ currentLED }} LED.
+              </div>
+              <div id="user-message" style="text-align: center; margin-top: 15px; font-weight: bold;"></div> </div>
+          </div>
+        </div>
+      </b-tab>
+
+      <b-tab title="Curve" :disabled="!deviceConnected">
+        <div class="container">
+          <div class="row">
+            <div class="col-12">
+              <button id="takeCurveReadingButton" class="btn btn-outline-primary btn-block mb-3" @click="takeReading('curve')" :disabled="!deviceConnected || currentLED === 'None'">
+                Take Curve Reading
+              </button>
+              <div class="table-responsive"> <table id="curve-table" class="table table-striped table-hover">
+                  <thead class="thead-light">
+                    <tr>
+                      <th>#</th>
+                      <th>Time</th>
+                      <th>Absorbance</th>
+                      <th>Concentration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="curveData.length === 0">
+                        <td colspan="4" class="text-center">No curve data yet. Take a reading.</td>
+                    </tr>
+                    <tr v-for="(row, index) in curveData" :key="'curve-' + index">
+                      <td>{{ index + 1 }}</td>
+                      <td>{{ row.time }}</td>
+                      <td>{{ row.absorbance.toFixed(4) }}</td> <td>
+                        <input type="number" v-model.number="row.concentration" @input="validateNumber(row)" class="form-control form-control-sm" placeholder="Enter value">
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </div>
       </b-tab>
-      <b-tab title="Curve">
+
+      <b-tab title="Samples" :disabled="!deviceConnected">
         <div class="container">
           <div class="row">
             <div class="col-12">
-              <button id="takeCurveReadingButton" class="btn btn-outline-primary btn-block mb-3">Take Curve
-                Reading</button>
-              <table id="curve-table" class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Sample No.</th>
-                    <th>Time</th>
-                    <th>Absorbance</th>
-                    <th>Concentration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, index) in curveData" :key="index">
-                    <td>{{ index + 1 }}</td>
-                    <td>{{ row.time }}</td>
-                    <td>{{ row.absorbance }}</td>
-                    <td><input type="number" v-model="row.concentration" @input="validateNumber(row)"
-                        class="form-control"></td>
-                  </tr>
-                </tbody>
-              </table>
+              <button id="takeSampleReadingButton" class="btn btn-outline-primary btn-block mb-3" @click="takeReading('sample')" :disabled="!deviceConnected || currentLED === 'None'">
+                Take Sample Reading
+              </button>
+               <div class="table-responsive"> <table id="data-table" class="table table-striped table-hover">
+                  <thead class="thead-light">
+                    <tr>
+                      <th>#</th>
+                      <th>Time</th>
+                      <th>Absorbance</th>
+                      <th>Concentration</th> </tr>
+                  </thead>
+                  <tbody>
+                     <tr v-if="tableData.length === 0">
+                        <td colspan="4" class="text-center">No sample data yet. Take a reading.</td>
+                    </tr>
+                    <tr v-for="(row, index) in tableData" :key="'sample-' + index">
+                      <td>{{ index + 1 }}</td>
+                      <td>{{ row.time }}</td>
+                      <td>{{ row.absorbance.toFixed(4) }}</td> <td>{{ row.concentration !== null ? row.concentration.toFixed(4) : 'N/A' }}</td> </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       </b-tab>
-      <b-tab title="Samples">
-        <div class="container">
-          <div class="row">
-            <div class="col-12">
-              <button id="takeSampleReadingButton" class="btn btn-outline-primary btn-block mb-3">Take Sample
-                Reading</button>
-              <table id="data-table" class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Sample No.</th>
-                    <th>Time</th>
-                    <th>Absorbance</th>
-                    <th>Concentration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, index) in tableData" :key="index">
-                    <td>{{ index + 1 }}</td>
-                    <td>{{ row.time }}</td>
-                    <td>{{ row.absorbance }}</td>
-                    <td>{{ row.concentration }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </b-tab>
+
       <b-tab title="Logs">
         <div class="container">
           <div class="row">
             <div class="col-12">
-              <table id="log-table" class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(log, index) in logMessages" :key="index">
-                    <td>{{ log.timestamp.toLocaleString() }}</td>
-                    <td>{{ log.message }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;"> <table id="log-table" class="table table-sm table-striped">
+                  <thead class="thead-light">
+                    <tr>
+                      <th style="width: 150px;">Timestamp</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="logMessages.length === 0">
+                        <td colspan="2" class="text-center">No log messages.</td>
+                    </tr>
+                    <tr v-for="(log, index) in reversedLogMessages" :key="'log-' + index">
+                      <td>{{ log.timestamp.toLocaleTimeString() }}</td>
+                      <td>{{ log.message }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+               <button class="btn btn-secondary btn-sm mt-2" @click="clearLogs">Clear Logs</button>
             </div>
           </div>
         </div>
       </b-tab>
     </b-tabs>
 
-    <div class="modal fade" id="zeroPromptModal" tabindex="-1" role="dialog" aria-labelledby="zeroPromptModalLabel"
-      aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="zeroPromptModalLabel">Set Zero</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body" id="zeroPromptMessage">
-            Insert blank sample and click OK to set zero with the selected LED.
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="modal-ok-button">OK</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <b-modal id="zeroPromptModal" title="Set Zero Confirmation" @ok="handleZeroOk" @cancel="handleZeroCancel" ok-title="OK - Start Zeroing" cancel-variant="secondary">
+        <p id="zeroPromptMessage">Insert blank sample and click OK to set zero with the {{ ledToZero }} LED.</p>
+    </b-modal>
 
-  </div>
-
-  <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
-  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+  </div> <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+  <script src="https://unpkg.com/bootstrap-vue@2.22.0/dist/bootstrap-vue.min.js"></script>
   <script src="https://unpkg.com/jquery@3.5.1/dist/jquery.min.js"></script>
-  <script src="https://unpkg.com/bootstrap@4.5.3/dist/js/bootstrap.min.js"></script>
+  <script src="https://unpkg.com/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
 
   <script>
-    let app;
-    app = new Vue({
+    // BLE Service and Characteristic UUIDs
+    const SERVICE_UUID = '79daf682-341b-42b5-891a-1647a8a9517b';
+    const CHARACTERISTIC_TX_UUID = 'b6f055b0-cb3f-4c99-8098-2a793916bada'; // ESP32 to Web App (Notifications)
+    const CHARACTERISTIC_RX_UUID = 'daa5f483-1420-4f26-9095-165d8fc6a321'; // Web App to ESP32 (Write)
+
+    // Global BLE variables
+    let bleDevice = null; // Use a distinct name to avoid confusion
+    let characteristicTX = null;
+    let characteristicRX = null;
+    let connectionCheckInterval = null; // Interval timer for connection polling
+    let zeroingInterval = null; // Interval timer for zeroing progress
+
+    const app = new Vue({
       el: '#app',
       data() {
         return {
-          curveData: [],
-          tableData: [],
-          logMessages: [],
-          currentLED: 'None',
-          currentAbsorbance: 'N/A',
-          deviceConnected: false
+          curveData: [], // Data for the calibration curve
+          tableData: [], // Data for sample readings
+          logMessages: [], // Log messages from ESP32 or app
+          currentLED: 'None', // Currently active LED ('None', 'Red', 'Green', 'Blue')
+          currentAbsorbance: 'N/A', // Last known absorbance value
+          deviceConnected: false, // BLE connection status
+          ledToZero: '', // Which LED is being zeroed
+          isZeroing: false // Flag if zeroing process is active
         };
       },
+      computed: {
+          // Computed property to display logs in reverse chronological order
+          reversedLogMessages() {
+              return [...this.logMessages].reverse();
+          }
+      },
       methods: {
+        // --- Data Handling ---
         addCurveData(dataValue) {
+          const absorbance = parseFloat(dataValue);
+          if (isNaN(absorbance)) {
+              this.addLog(`Received invalid curve data: ${dataValue}`);
+              return;
+          }
           const newRow = {
-            time: new Date().toLocaleTimeString('en-US', {
-              hour12: false
-            }),
-            absorbance: parseFloat(dataValue),
-            concentration: null
+            time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+            absorbance: absorbance,
+            concentration: null // User inputs concentration for curve points
           };
           this.curveData.push(newRow);
+          this.addLog(`Curve reading added: ${absorbance.toFixed(4)}`);
         },
         addDataToTable(dataValue) {
+          const absorbance = parseFloat(dataValue);
+           if (isNaN(absorbance)) {
+              this.addLog(`Received invalid sample data: ${dataValue}`);
+              return;
+          }
           const newRow = {
-            time: new Date().toLocaleTimeString('en-US', {
-              hour12: false
-            }),
-            absorbance: parseFloat(dataValue),
-            concentration: null
+            time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+            absorbance: absorbance,
+            // Concentration would typically be calculated based on the curve
+            // For now, just storing absorbance
+            concentration: null // Placeholder
           };
           this.tableData.push(newRow);
+          this.addLog(`Sample reading added: ${absorbance.toFixed(4)}`);
         },
         addLog(message) {
+          console.log("LOG:", message); // Also log to console for debugging
           const newLog = {
             message: message,
             timestamp: new Date()
           };
           this.logMessages.push(newLog);
-        },
-        validateNumber(row) {
-          const newValue = parseFloat(row.concentration);
-          if (isNaN(newValue)) {
-            row.concentration = isNaN(row.concentration) ? null : parseFloat(row.concentration);
-          } else {
-            row.concentration = newValue;
+          // Optional: Limit log size
+          if (this.logMessages.length > 100) {
+            this.logMessages.shift(); // Remove the oldest log
           }
         },
+        clearLogs() {
+            this.logMessages = [];
+            this.addLog("Logs cleared.");
+        },
+        validateNumber(row) {
+          // Ensure concentration is a valid number or null
+          const val = row.concentration;
+          if (val === '' || val === null || isNaN(parseFloat(val))) {
+              row.concentration = null;
+          } else {
+              row.concentration = parseFloat(val); // Ensure it's stored as a number
+          }
+        },
+        // --- UI Updates ---
         updateAbsorbance(absorbance) {
-          this.currentAbsorbance = absorbance;
+          if (this.isZeroing) return; // Don't update during zeroing display
+          const numAbsorbance = parseFloat(absorbance);
+          this.currentAbsorbance = isNaN(numAbsorbance) ? 'N/A' : numAbsorbance.toFixed(4);
         },
         updateLED(led) {
           this.currentLED = led;
+          this.addLog(`LED set to: ${led}`);
         },
         setDeviceConnected(connected) {
           this.deviceConnected = connected;
+          this.currentAbsorbance = 'N/A'; // Reset absorbance on connect/disconnect
+          this.currentLED = 'None'; // Reset LED status
+           if (!connected) {
+               this.addLog('Device disconnected.');
+               this.resetUIState(); // Reset UI elements on disconnect
+           } else {
+               this.addLog('Device connected successfully.');
+           }
+           this.hideUserMessage(); // Clear any previous messages
+        },
+        resetUIState() {
+            // Reset progress bar and confirmation message if disconnect happens during zeroing
+            this.isZeroing = false;
+            if (zeroingInterval) clearInterval(zeroingInterval);
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+            setZeroProgressDiv.style.display = 'none';
+            setZeroConfirmation.style.display = 'none';
+            // Consider resetting table data or not based on requirements
+            // this.curveData = [];
+            // this.tableData = [];
+        },
+        showUserMessage(message, isError = false) {
+            const msgDiv = document.getElementById('user-message');
+            if (msgDiv) {
+                msgDiv.textContent = message;
+                msgDiv.style.color = isError ? 'red' : 'green';
+                msgDiv.style.display = 'block';
+            }
+        },
+        hideUserMessage() {
+            const msgDiv = document.getElementById('user-message');
+            if (msgDiv) {
+                msgDiv.style.display = 'none';
+                msgDiv.textContent = '';
+            }
+        },
+
+        // --- BLE Actions ---
+        async connect() {
+          if (!navigator.bluetooth) {
+            this.addLog('Web Bluetooth API is not available in this browser.');
+            this.showUserMessage('Web Bluetooth is not supported by your browser.', true);
+            return;
+          }
+          this.addLog('Requesting Bluetooth Device...');
+          this.showUserMessage('Scanning for devices... Please select your ESP32.');
+
+          try {
+            // Request device connection
+            // **FIX:** Assign to the global bleDevice variable
+            bleDevice = await navigator.bluetooth.requestDevice({
+              acceptAllDevices: false, // More secure to filter by service
+              filters: [{ services: [SERVICE_UUID] }],
+              // optionalServices: [SERVICE_UUID] // Already specified in filters
+            });
+
+            this.addLog(`Connecting to device: ${bleDevice.name || bleDevice.id}...`);
+            this.showUserMessage(`Connecting to ${bleDevice.name || 'device'}...`);
+
+            // **FIX:** Add disconnection listener *before* connecting GATT
+            bleDevice.addEventListener('gattserverdisconnected', this.onDisconnected);
+
+            const server = await bleDevice.gatt.connect();
+            this.addLog('Connected to GATT Server.');
+
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            this.addLog('Got primary service.');
+
+            // Get characteristics
+            characteristicTX = await service.getCharacteristic(CHARACTERISTIC_TX_UUID);
+            characteristicRX = await service.getCharacteristic(CHARACTERISTIC_RX_UUID);
+            this.addLog('Got characteristics TX and RX.');
+
+            // Start notifications on TX characteristic
+            await characteristicTX.startNotifications();
+            characteristicTX.addEventListener('characteristicvaluechanged', this.handleIncomingData);
+            this.addLog('Started notifications on TX characteristic.');
+
+            // Update UI state
+            this.setDeviceConnected(true);
+            this.showUserMessage(`Connected to ${bleDevice.name || 'device'}!`, false); // Show success message
+
+            // Start connection monitoring as a fallback
+            this.startConnectionMonitoring();
+
+          } catch (error) {
+            this.addLog(`Connection failed: ${error}`);
+            this.showUserMessage(`Connection failed: ${error.message}`, true);
+            this.disconnectCleanup(); // Ensure cleanup if connection fails midway
+          }
+        },
+
+        // --- Event Handlers ---
+        handleIncomingData(event) {
+          try {
+            const value = new TextDecoder().decode(event.target.value);
+            // this.addLog(`Raw data received: ${value}`); // Log raw for debug if needed
+
+            if (value.startsWith('d:')) { // Discrete data reading
+              const dataValue = value.substring(2);
+              this.addLog(`Received data reading: ${dataValue}`);
+              // Determine active tab - Vue doesn't easily expose active tab index/title
+              // We'll rely on the button click context or a state variable if needed
+              // For now, assume the user clicked the appropriate button before receiving data
+              // Or, could add logic here based on which button was last pressed
+              // Simplified: Add to the table corresponding to the last action? Risky.
+              // Better: Let button clicks dictate where data goes.
+              // The current logic adds based on active tab, which is okay but relies on DOM query.
+              const activeTabEl = document.querySelector('.tab-pane.active'); // Find active tab content
+              if (activeTabEl) {
+                  const tableId = activeTabEl.querySelector('table')?.id;
+                  if (tableId === 'curve-table') {
+                      this.addCurveData(dataValue);
+                  } else if (tableId === 'data-table') {
+                      this.addDataToTable(dataValue);
+                  } else {
+                      this.addLog(`Data 'd:' received, but couldn't determine target table.`);
+                  }
+              }
+              // Also update the main absorbance display
+              this.updateAbsorbance(dataValue);
+
+            } else if (value.startsWith('a:')) { // Continuous absorbance update
+              const absorbanceValue = value.substring(2);
+              this.updateAbsorbance(absorbanceValue); // Update status bar display only
+              // Optionally log continuous updates, but can be noisy
+              // this.addLog(`Continuous absorbance: ${absorbanceValue}`);
+
+            } else if (value.startsWith('z:')) { // Zeroing confirmation/status
+                const status = value.substring(2);
+                this.addLog(`Zeroing status: ${status}`);
+                if (status === 'DONE') {
+                    this.endSetZeroProgress(true); // Mark as success
+                } else if (status === 'ERROR') {
+                    this.endSetZeroProgress(false); // Mark as failure
+                } else {
+                    // Handle other potential zeroing messages
+                }
+            } else { // Assume it's a general log message from ESP32
+              this.addLog(`ESP32: ${value}`);
+            }
+          } catch (error) {
+            this.addLog(`Error processing incoming data: ${error}`);
+          }
+        },
+
+        // **FIX:** Handler for the 'gattserverdisconnected' event
+        onDisconnected(event) {
+          this.addLog('GATT Server disconnected event received.');
+          this.disconnectCleanup();
+        },
+
+        // --- Cleanup Logic ---
+        disconnectCleanup() {
+          this.addLog('Cleaning up BLE connection...');
+          if (connectionCheckInterval) {
+            clearInterval(connectionCheckInterval);
+            connectionCheckInterval = null;
+            this.addLog('Cleared connection check interval.');
+          }
+
+          // Remove event listeners if they exist
+          if (bleDevice) {
+              bleDevice.removeEventListener('gattserverdisconnected', this.onDisconnected);
+          }
+          if (characteristicTX) {
+            characteristicTX.removeEventListener('characteristicvaluechanged', this.handleIncomingData);
+            // Stop notifications if possible (best practice)
+            characteristicTX.stopNotifications().catch(err => this.addLog(`Error stopping notifications: ${err}`));
+          }
+
+
+          // Clear global variables
+          characteristicTX = null;
+          characteristicRX = null;
+          bleDevice = null; // Set global device object to null
+
+          // Update Vue state LAST, after cleanup
+          this.setDeviceConnected(false);
+
+          // No need to call device.gatt.disconnect() here, as this function
+          // is called BECAUSE the device is already disconnected.
+        },
+
+        // --- Connection Monitoring (Fallback) ---
+        startConnectionMonitoring() {
+          if (connectionCheckInterval) {
+            clearInterval(connectionCheckInterval); // Clear existing interval
+          }
+          this.addLog('Starting connection monitoring interval.');
+          connectionCheckInterval = setInterval(() => {
+            if (bleDevice && !bleDevice.gatt.connected) {
+              this.addLog('Connection monitoring detected disconnection.');
+              // No need to call disconnect() again, call cleanup directly
+              this.disconnectCleanup();
+            }
+          }, 3000); // Check every 3 seconds
+        },
+
+        // --- Sending Data ---
+        async send(message) {
+          if (!characteristicRX) {
+            this.addLog('Cannot send message: RX Characteristic not available.');
+            this.showUserMessage('Device not ready to receive commands.', true);
+            return;
+          }
+          if (!bleDevice || !bleDevice.gatt.connected) {
+              this.addLog('Cannot send message: Device not connected.');
+              this.showUserMessage('Device is not connected.', true);
+              return;
+          }
+
+          try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(message);
+            await characteristicRX.writeValueWithoutResponse(data); // Use writeWithoutResponse if ESP32 doesn't confirm writes
+            // await characteristicRX.writeValue(data); // Use writeValue if ESP32 sends confirmations
+            this.addLog(`Sent: ${message}`);
+          } catch (error) {
+            this.addLog(`Error sending message "${message}": ${error}`);
+            this.showUserMessage(`Error sending command: ${error.message}`, true);
+            // Consider attempting to disconnect if sending fails repeatedly
+            // this.disconnectCleanup();
+          }
+        },
+
+        // --- Application Actions ---
+        takeReading(type) {
+            if (this.currentLED === 'None') {
+                this.showUserMessage('Please select an LED and perform zeroing first.', true);
+                return;
+            }
+            this.addLog(`Requesting reading for ${type}...`);
+            this.send('READ_SENSOR');
+        },
+
+        showZeroPrompt(ledColor) {
+            if (!this.deviceConnected) {
+                this.showUserMessage('Connect to the device first.', true);
+                return;
+            }
+            this.ledToZero = ledColor; // Store which LED we intend to zero
+            this.$bvModal.show('zeroPromptModal'); // Use BootstrapVue method to show modal
+            // Hide confirmation/progress from previous attempts
+            document.getElementById('set-zero-confirmation').style.display = 'none';
+            document.getElementById('set-zero-progress').style.display = 'none';
+            this.hideUserMessage();
+        },
+
+        handleZeroOk() {
+            // This is called when the user clicks OK on the modal
+            this.addLog(`User confirmed zeroing for ${this.ledToZero} LED.`);
+            this.send(`LED_${this.ledToZero.toUpperCase()}_ON`); // Send command to ESP32
+            this.updateLED(this.ledToZero); // Update UI immediately
+            this.currentAbsorbance = 'Zeroing...'; // Update status
+            this.startSetZeroProgress();
+        },
+         handleZeroCancel() {
+            this.addLog(`User cancelled zeroing for ${this.ledToZero} LED.`);
+            this.ledToZero = ''; // Clear the pending LED
+        },
+
+        startSetZeroProgress() {
+            this.isZeroing = true;
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const progressBar = setZeroProgressDiv.querySelector('.progress-bar');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+
+            setZeroConfirmation.style.display = 'none'; // Hide previous confirmation
+            setZeroProgressDiv.style.display = 'block'; // Show progress bar
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', 0);
+            progressBar.classList.remove('bg-success', 'bg-danger'); // Reset color
+            progressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+
+
+            // Simulate progress - Ideally, ESP32 sends confirmation 'z:DONE' or 'z:ERROR'
+            // This timeout simulates waiting for the ESP32 process
+            let progress = 0;
+            const duration = 5000; // Assume zeroing takes 5 seconds (adjust as needed)
+            const intervalTime = 50; // Update every 50ms
+            const steps = duration / intervalTime;
+            const increment = 100 / steps;
+
+            if (zeroingInterval) clearInterval(zeroingInterval); // Clear previous interval if any
+
+            zeroingInterval = setInterval(() => {
+                progress += increment;
+                if (progress >= 100) {
+                    progress = 100;
+                    // Don't stop automatically here - wait for ESP32 confirmation (z:DONE/z:ERROR)
+                    // If no confirmation received after timeout, assume error.
+                }
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute('aria-valuenow', progress);
+            }, intervalTime);
+
+            // Timeout fallback if ESP32 doesn't respond
+             setTimeout(() => {
+                if (this.isZeroing) { // Check if zeroing wasn't already completed/failed
+                    this.addLog('Zeroing timed out waiting for ESP32 confirmation.');
+                    this.endSetZeroProgress(false); // Assume failure on timeout
+                }
+            }, duration + 1000); // Wait 1s longer than expected duration
+        },
+
+        endSetZeroProgress(success = true) {
+            if (!this.isZeroing) return; // Avoid running if already ended
+
+            clearInterval(zeroingInterval);
+            zeroingInterval = null;
+            this.isZeroing = false;
+
+            const setZeroProgressDiv = document.getElementById('set-zero-progress');
+            const progressBar = setZeroProgressDiv.querySelector('.progress-bar');
+            const setZeroConfirmation = document.getElementById('set-zero-confirmation');
+
+            progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            progressBar.style.width = '100%'; // Fill bar
+
+            if (success) {
+                this.addLog(`Zeroing successful for ${this.currentLED} LED.`);
+                progressBar.classList.add('bg-success');
+                setZeroConfirmation.textContent = `Zeroing complete for ${this.currentLED} LED.`;
+                setZeroConfirmation.style.color = 'green';
+                this.currentAbsorbance = '0.0000'; // Set absorbance to 0 after successful zero
+            } else {
+                this.addLog(`Zeroing failed for ${this.currentLED} LED.`);
+                progressBar.classList.add('bg-danger');
+                setZeroConfirmation.textContent = `Zeroing failed for ${this.currentLED} LED.`;
+                setZeroConfirmation.style.color = 'red';
+                this.currentAbsorbance = 'Error'; // Indicate error
+                this.updateLED('None'); // Reset LED state if zeroing failed
+            }
+
+            setZeroConfirmation.style.display = 'block'; // Show confirmation message
+
+            // Hide progress bar after a short delay
+            setTimeout(() => {
+                setZeroProgressDiv.style.display = 'none';
+            }, 2000); // Hide after 2 seconds
         }
       },
-      watch: {
-        currentLED(newVal) {
-          $('#led-status').text(`LED: ${newVal}`);
-        },
-        currentAbsorbance(newVal) {
-          $('#absorbance-status').text(`Absorbance: ${newVal}`);
-        },
-        deviceConnected(newVal) {
-          if (newVal) {
-            $('#connection-status').text('● Connected').addClass('connected');
-          } else {
-            $('#connection-status').text('● Disconnected').removeClass('connected');
-          }
-        }
+      mounted() {
+        this.addLog('App mounted. Ready.');
+        // No automatic connection on load, user must click Connect.
       }
     });
 
-    const connectButton = document.getElementById('connectButton');
-    const takeCurveReadingButton = document.getElementById('takeCurveReadingButton');
-    const takeSampleReadingButton = document.getElementById('takeSampleReadingButton');
-    const redLEDButton = document.getElementById('redLEDButton');
-    const greenLEDButton = document.getElementById('greenLEDButton');
-    const blueLEDButton = document.getElementById('blueLEDButton');
-    const setZeroProgressDiv = document.getElementById('set-zero-progress');
-    const progressBar = document.querySelector('#set-zero-progress .progress-bar');
-    const zeroPromptModal = $('#zeroPromptModal');
-    const setZeroConfirmation = document.getElementById('set-zero-confirmation');
-    const connectionStatus = document.getElementById('connection-status');
-
-    let device = null;
-    let characteristicTX = null;
-    let characteristicRX = null;
-    let zeroingInterval;
-    let connectionCheckInterval;
-
-    async function connect() {
-      try {
-        console.log('Requesting Bluetooth Device...');
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['79daf682-341b-42b5-891a-1647a8a9517b']
-        });
-
-        console.log('> Name:          ' + device.name);
-        console.log('> Id:            ' + device.id);
-        console.log('> Connected:     ' + device.gatt.connected);
-
-        console.log('Connecting to GATT Server...');
-        const server = await device.gatt.connect();
-
-        console.log('Getting Service...');
-        const service = await server.getPrimaryService('79daf682-341b-42b5-891a-1647a8a9517b');
-
-        console.log('Getting Characteristics...');
-        characteristicTX = await service.getCharacteristic('b6f055b0-cb3f-4c99-8098-2a793916bada');
-        characteristicRX = await service.getCharacteristic('daa5f483-1420-4f26-9095-165d8fc6a321');
-
-        await characteristicTX.startNotifications();
-        characteristicTX.addEventListener('characteristicvaluechanged', handleIncomingData);
-        console.log('Notifications enabled');
-
-        connectButton.disabled = true;
-
-        app.setDeviceConnected(true);
-
-        alert('Connected successfully!');
-
-        startConnectionMonitoring();
-
-      } catch (error) {
-        console.error('Error in connection process:', error);
-        alert('Connection failed: ' + error.message);
-      }
-    }
-
-    function handleIncomingData(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      console.log('Received:', value);
-
-      if (value.startsWith('d:')) {
-        const dataValue = value.substring(2);
-        const activeTab = document.querySelector('.nav-link.active').textContent;
-        if (activeTab === 'Curve') {
-          app.addCurveData(dataValue);
-        } else if (activeTab === 'Samples') {
-          app.addDataToTable(dataValue);
-        } else {
-          app.addLog('Data received but no active data table selected.');
-        }
-        app.updateAbsorbance(parseFloat(dataValue).toFixed(8));
-      } else if (value.startsWith('a:')) {
-        const absorbanceValue = parseFloat(value.substring(2)).toFixed(8);
-        app.updateAbsorbance(absorbanceValue);
-      } else {
-        app.addLog(value);
-      }
-    }
-
-    async function send(message) {
-      if (message && characteristicRX) {
-        try {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(message);
-          await characteristicRX.writeValue(data);
-          console.log('Sent message:', message);
-        } catch (error) {
-          console.error('Error sending message:', error);
-          statusDiv.textContent = 'Error sending message: ' + error.message;
-        }
-      }
-    }
-
-    function disconnect() {
-      if (device) {
-        device.gatt.disconnect();
-        app.setDeviceConnected(false);
-      }
-    }
-
-    function startConnectionMonitoring() {
-      if (connectionCheckInterval) {
-        clearInterval(connectionCheckInterval);
-      }
-
-      connectionCheckInterval = setInterval(() => {
-        if (device && !device.gatt.connected) {
-          console.log('Device disconnected unexpectedly.');
-          clearInterval(connectionCheckInterval);
-          disconnect();
-        }
-      }, 2000);
-    }
-
-    connectButton.addEventListener('click', connect);
-
-    takeCurveReadingButton.addEventListener('click', () => {
-      send('READ_SENSOR');
-    });
-
-    takeSampleReadingButton.addEventListener('click', () => {
-      send('READ_SENSOR');
-    });
-
-    redLEDButton.addEventListener('click', () => {
-      showZeroPrompt('Red');
-    });
-
-    greenLEDButton.addEventListener('click', () => {
-      showZeroPrompt('Green');
-    });
-
-    blueLEDButton.addEventListener('click', () => {
-      showZeroPrompt('Blue');
-    });
-
-    function showZeroPrompt(ledColor) {
-      const promptMessage = `Insert blank sample and click OK to set zero with the ${ledColor} LED.`;
-      $('#zeroPromptMessage').text(promptMessage);
-      zeroPromptModal.modal('show');
-      setZeroConfirmation.style.display = 'none';
-
-      const okButton = document.getElementById('modal-ok-button');
-      okButton.onclick = () => {
-        send(`LED_${ledColor.toUpperCase()}_ON`);
-        zeroPromptModal.modal('hide');
-        app.updateLED(ledColor);
-        app.updateAbsorbance('Setting...');
-        startSetZeroProgress();
-        setZeroProgressDiv.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.setAttribute('aria-valuenow', 0);
-
-        let progress = 0;
-        zeroingInterval = setInterval(() => {
-          progress += 10;
-          progressBar.style.width = `${progress}%`;
-          progressBar.setAttribute('aria-valuenow', progress);
-          if (progress >= 100) {
-            clearInterval(zeroingInterval);
-            setTimeout(() => {
-              setZeroProgressDiv.style.display = 'none';
-              app.endSetZeroProgress();
-              setZeroConfirmation.style.display = 'block';
-              app.updateAbsorbance(app.currentAbsorbance);
-            }, 500);
-          }
-        }, 500);
-      };
-    }
-
-    // Periodic update (adjust interval as needed)
-    setInterval(() => {
-      if (deviceConnected) {
-        send('READ_SENSOR');
-      }
-    }, 1000);
   </script>
 </body>
 
