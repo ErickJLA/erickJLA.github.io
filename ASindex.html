@@ -205,7 +205,7 @@
     // 1. PAR Display
     // We apply a final multiplier (x10) just to make the number look readable (e.g. 250 instead of 25.0)
     // You can calibrate this x10 to match a real meter if you ever borrow one.
-    document.getElementById('par-disp').innerText = (totalPARScore * 0.000615).toFixed(2);
+    document.getElementById('par-disp').innerText = (totalPARScore * 0.00615).toFixed(2);
 
     // 2. Graph Scaling
     let currentMax = Math.max(...calibratedValues);
