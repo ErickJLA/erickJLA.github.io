@@ -4,54 +4,129 @@
   <title>Pro Spectrum</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a1a; color: #eee; text-align: center; margin: 0; padding: 20px; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+      background: #1a1a1a; 
+      color: #eee; 
+      text-align: center; 
+      margin: 0; 
+      padding: 20px; 
+      /* Prevent pull-to-refresh on mobile to stop accidental reloads */
+      overscroll-behavior: none;
+    }
     
-    /* Header & Status */
-    .status-panel { background: #333; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .status-item { font-size: 14px; color: #aaa; }
-    .status-val { font-size: 18px; font-weight: bold; color: #fff; }
+    /* --- Header & Status --- */
+    .status-panel { 
+      background: #333; 
+      padding: 15px; 
+      border-radius: 12px; 
+      margin-bottom: 20px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    .status-item { font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px;}
+    .status-val { font-size: 18px; font-weight: bold; color: #fff; margin-top: 5px;}
     
-    #sat-indicator { color: #333; font-weight: bold; background: #333; padding: 4px 8px; border-radius: 4px; transition: 0.3s; }
+    #sat-indicator { 
+      color: #444; 
+      font-weight: bold; 
+      background: #222; 
+      padding: 6px 12px; 
+      border-radius: 6px; 
+      font-size: 12px;
+    }
     .saturated { background: #ff3b30 !important; color: white !important; }
 
-    button { width: 100%; padding: 15px; font-size: 16px; background: #007AFF; color: white; border: none; border-radius: 12px; margin-bottom: 20px; font-weight: 600; }
-    
-    /* Graph Area */
-    .bars { display: flex; justify-content: space-between; align-items: flex-end; height: 250px; gap: 4px; padding-bottom: 5px; border-bottom: 1px solid #444; }
-    .bar-container { width: 12%; display: flex; flex-direction: column; align-items: center; }
-    .bar { width: 100%; background: #555; border-radius: 4px 4px 0 0; transition: height 0.2s ease-out; min-height: 2px; }
-    .bar-label { font-size: 10px; margin-top: 6px; color: #888; }
-    .bar-val { font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+    button { 
+      width: 100%; 
+      padding: 15px; 
+      font-size: 16px; 
+      background: #007AFF; 
+      color: white; 
+      border: none; 
+      border-radius: 12px; 
+      margin-bottom: 20px; 
+      font-weight: 600; 
+      cursor: pointer;
+    }
+
+    /* --- The Graph Structure --- */
+    .graph-container { 
+      display: flex; 
+      justify-content: space-between; 
+      margin-top: 20px;
+    }
+
+    /* Holds one vertical slice (Value + Track + Label) */
+    .col-wrapper { 
+      width: 11%; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+
+    .bar-val { 
+      font-size: 10px; 
+      font-weight: bold; 
+      margin-bottom: 5px; 
+      color: #fff;
+      height: 15px; /* Keep alignment even if empty */
+    }
+
+    /* The fixed-height area the bar grows inside */
+    .track {
+      width: 100%;
+      height: 220px; /* FIXED HEIGHT: This fixes your bug */
+      background: #2a2a2a;
+      border-radius: 4px;
+      display: flex;
+      align-items: flex-end; /* Grow from bottom */
+      overflow: hidden;
+    }
+
+    .bar { 
+      width: 100%; 
+      min-height: 1px; 
+      border-radius: 2px 2px 0 0; 
+      transition: height 0.2s ease-out; /* Smooth animation */
+    }
+
+    .bar-label { 
+      font-size: 10px; 
+      margin-top: 8px; 
+      color: #888; 
+    }
 
     /* Colors */
-    #b0 { background: #7600ed; box-shadow: 0 0 10px #7600edaa; }
-    #b1 { background: #0028ff; box-shadow: 0 0 10px #0028ffaa; }
-    #b2 { background: #00d5ff; box-shadow: 0 0 10px #00d5ffaa; }
-    #b3 { background: #1aff00; box-shadow: 0 0 10px #1aff00aa; }
-    #b4 { background: #a3ff00; box-shadow: 0 0 10px #a3ff00aa; }
-    #b5 { background: #ffdf00; box-shadow: 0 0 10px #ffdf00aa; }
-    #b6 { background: #ff4f00; box-shadow: 0 0 10px #ff4f00aa; }
-    #b7 { background: #ff0000; box-shadow: 0 0 10px #ff0000aa; }
+    #b0 { background: #7600ed; }
+    #b1 { background: #0028ff; }
+    #b2 { background: #00d5ff; }
+    #b3 { background: #1aff00; }
+    #b4 { background: #a3ff00; }
+    #b5 { background: #ffdf00; }
+    #b6 { background: #ff4f00; }
+    #b7 { background: #ff0000; }
   </style>
 </head>
 <body>
 
   <div class="status-panel">
     <div>
-      <div class="status-item">GAIN</div>
+      <div class="status-item">Gain</div>
       <div class="status-val" id="gain-disp">--</div>
     </div>
     <div id="sat-indicator">SATURATED</div>
     <div>
-      <div class="status-item">STATUS</div>
-      <div class="status-val" id="conn-status">Disc.</div>
+      <div class="status-item">Signal</div>
+      <div class="status-val" id="conn-status" style="color:#666">Off</div>
     </div>
   </div>
 
-  <div class="bars">
-    </div>
-
   <button id="conBtn" onclick="connect()">CONNECT SENSOR</button>
+
+  <div class="graph-container">
+    </div>
 
 <script>
   const serviceUUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -59,20 +134,23 @@
   const wavelengths = ["415", "445", "480", "515", "555", "590", "630", "680"];
   
   let maxGraphVal = 1000; 
-  let incomingBuffer = ""; // The "waiting room" for broken packets
+  let incomingBuffer = ""; 
 
-  // Generate HTML for bars dynamically
-  const barsContainer = document.querySelector('.bars');
+  // --- 1. BUILD THE HTML STRUCTURE DYNAMICALLY ---
+  const graphContainer = document.querySelector('.graph-container');
   wavelengths.forEach((wl, i) => {
     let html = `
-      <div class="bar-container">
+      <div class="col-wrapper">
         <div class="bar-val" id="v${i}">0</div>
-        <div id="b${i}" class="bar" style="height:1%"></div>
+        <div class="track">
+            <div id="b${i}" class="bar" style="height:1%"></div>
+        </div>
         <div class="bar-label">${wl}</div>
       </div>`;
-    barsContainer.innerHTML += html;
+    graphContainer.innerHTML += html;
   });
 
+  // --- 2. BLUETOOTH CONNECTION ---
   async function connect() {
     try {
       const device = await navigator.bluetooth.requestDevice({
@@ -89,30 +167,23 @@
       document.getElementById("conn-status").style.color = "#0f0";
       document.getElementById("conBtn").style.display = "none";
     } catch (error) {
-      alert("Error: " + error);
+      alert("Connection Error: " + error);
     }
   }
 
+  // --- 3. DATA HANDLING (WITH BUFFERING) ---
   function handleData(event) {
     let decoder = new TextDecoder('utf-8');
     let chunk = decoder.decode(event.target.value);
     
-    // 1. Add new chunk to the waiting room
     incomingBuffer += chunk;
 
-    // 2. Check if we have a full line (indicated by \n)
+    // Process line-by-line
     let newlineIndex = incomingBuffer.indexOf('\n');
-    
     while (newlineIndex !== -1) {
-       // Extract the full line
        let line = incomingBuffer.substring(0, newlineIndex).trim();
-       // Remove it from buffer
        incomingBuffer = incomingBuffer.substring(newlineIndex + 1);
-       
-       // Process the clean line
        if (line.length > 0) processLine(line);
-       
-       // Check if there is another line in the buffer
        newlineIndex = incomingBuffer.indexOf('\n');
     }
   }
@@ -120,41 +191,45 @@
   function processLine(raw) {
     let parts = raw.split(',');
 
-    // Safety check: We expect at least 9 items (8 vals + gain)
+    // Expect 8 values + 1 gain label
     if (parts.length < 9) return; 
 
-    // Update Gain Display
-    let gainStr = parts[8]; 
-    document.getElementById('gain-disp').innerText = gainStr || "Auto";
+    // Update Gain
+    document.getElementById('gain-disp').innerText = parts[8];
 
-    // Parse values
+    // Get Values
     let values = parts.slice(0, 8).map(Number);
     
-    // Check Saturation
+    // Saturation Check
     let isSaturated = values.some(v => v > 60000);
     let satBadge = document.getElementById('sat-indicator');
     if(isSaturated) {
         satBadge.classList.add('saturated');
-        satBadge.innerText = "SATURATION!";
     } else {
         satBadge.classList.remove('saturated');
-        satBadge.innerText = "OK";
     }
 
-    // Auto-scale graph
+    // Auto-Scale Logic
     let currentMax = Math.max(...values);
     if (currentMax > maxGraphVal) maxGraphVal = currentMax;
-    maxGraphVal = maxGraphVal * 0.99; // Slow decay
-    if(maxGraphVal < 1000) maxGraphVal = 1000;
+    
+    // Decay max value slowly so bars grow back up if light dims
+    maxGraphVal = maxGraphVal * 0.98; 
+    if(maxGraphVal < 500) maxGraphVal = 500; // Minimum floor
 
-    // Update Bars
+    // Update UI
     values.forEach((val, i) => {
+      // Update Number
       let elVal = document.getElementById('v' + i);
+      if(elVal) elVal.innerText = val;
+
+      // Update Bar Height
       let elBar = document.getElementById('b' + i);
-      if(elVal && elBar) {
-        elVal.innerText = val;
+      if(elBar) {
         let h = (val / maxGraphVal) * 100; 
+        // Clamp between 1% and 100%
         if(h > 100) h = 100;
+        if(h < 1) h = 1; 
         elBar.style.height = h + "%";
       }
     });
