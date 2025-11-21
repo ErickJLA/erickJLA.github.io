@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pro Spectrum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a1a; color: #eee; text-align: center; margin: 0; padding: 20px; }
+    
+    /* Header & Status */
+    .status-panel { background: #333; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .status-item { font-size: 14px; color: #aaa; }
+    .status-val { font-size: 18px; font-weight: bold; color: #fff; }
+    
+    #sat-indicator { color: #333; font-weight: bold; background: #333; padding: 4px 8px; border-radius: 4px; transition: 0.3s; }
+    .saturated { background: #ff3b30 !important; color: white !important; }
+
+    button { width: 100%; padding: 15px; font-size: 16px; background: #007AFF; color: white; border: none; border-radius: 12px; margin-bottom: 20px; font-weight: 600; }
+    
+    /* Graph Area */
+    .bars { display: flex; justify-content: space-between; align-items: flex-end; height: 250px; gap: 4px; padding-bottom: 5px; border-bottom: 1px solid #444; }
+    .bar-container { width: 12%; display: flex; flex-direction: column; align-items: center; }
+    .bar { width: 100%; background: #555; border-radius: 4px 4px 0 0; transition: height 0.2s ease-out; min-height: 2px; }
+    .bar-label { font-size: 10px; margin-top: 6px; color: #888; }
+    .bar-val { font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+
+    /* Colors */
+    #b0 { background: #7600ed; box-shadow: 0 0 10px #7600edaa; }
+    #b1 { background: #0028ff; box-shadow: 0 0 10px #0028ffaa; }
+    #b2 { background: #00d5ff; box-shadow: 0 0 10px #00d5ffaa; }
+    #b3 { background: #1aff00; box-shadow: 0 0 10px #1aff00aa; }
+    #b4 { background: #a3ff00; box-shadow: 0 0 10px #a3ff00aa; }
+    #b5 { background: #ffdf00; box-shadow: 0 0 10px #ffdf00aa; }
+    #b6 { background: #ff4f00; box-shadow: 0 0 10px #ff4f00aa; }
+    #b7 { background: #ff0000; box-shadow: 0 0 10px #ff0000aa; }
+  </style>
+</head>
+<body>
+
+  <div class="status-panel">
+    <div>
+      <div class="status-item">GAIN</div>
+      <div class="status-val" id="gain-disp">--</div>
+    </div>
+    <div id="sat-indicator">SATURATED</div>
+    <div>
+      <div class="status-item">STATUS</div>
+      <div class="status-val" id="conn-status">Disc.</div>
+    </div>
+  </div>
+
+  <div class="bars">
+    </div>
+
+  <button id="conBtn" onclick="connect()">CONNECT SENSOR</button>
+
+<script>
+  const serviceUUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  const charUUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  const wavelengths = ["415", "445", "480", "515", "555", "590", "630", "680"];
+  let maxGraphVal = 1000; 
+
+  // Generate HTML for bars dynamically
+  const barsContainer = document.querySelector('.bars');
+  wavelengths.forEach((wl, i) => {
+    let html = `
+      <div class="bar-container">
+        <div class="bar-val" id="v${i}">0</div>
+        <div id="b${i}" class="bar" style="height:1%"></div>
+        <div class="bar-label">${wl}</div>
+      </div>`;
+    barsContainer.innerHTML += html;
+  });
+
+  async function connect() {
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'Spectrum_Pro' }],
+        optionalServices: [serviceUUID]
+      });
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(serviceUUID);
+      const characteristic = await service.getCharacteristic(charUUID);
+      await characteristic.startNotifications();
+      characteristic.addEventListener('characteristicvaluechanged', handleData);
+      document.getElementById("conn-status").innerText = "Live";
+      document.getElementById("conn-status").style.color = "#0f0";
+      document.getElementById("conBtn").style.display = "none";
+    } catch (error) {
+      alert("Error: " + error);
+    }
+  }
+
+  function handleData(event) {
+    let decoder = new TextDecoder('utf-8');
+    let raw = decoder.decode(event.target.value).trim();
+    let parts = raw.split(',');
+
+    // The last item is the Gain String
+    let gainStr = parts[8]; 
+    document.getElementById('gain-disp').innerText = gainStr || "Auto";
+
+    // The first 8 items are data
+    let values = parts.slice(0, 8).map(Number);
+    
+    // Check for Saturation (Max is 65535)
+    let isSaturated = values.some(v => v > 65000);
+    let satBadge = document.getElementById('sat-indicator');
+    if(isSaturated) {
+        satBadge.classList.add('saturated');
+        satBadge.innerText = "SATURATION!";
+    } else {
+        satBadge.classList.remove('saturated');
+        satBadge.innerText = "OK";
+    }
+
+    // Auto-scale graph visually
+    let currentMax = Math.max(...values);
+    if (currentMax > maxGraphVal) maxGraphVal = currentMax;
+    // Slowly decay max to allow graph to grow back up if light dims
+    maxGraphVal = maxGraphVal * 0.99; 
+    if(maxGraphVal < 1000) maxGraphVal = 1000;
+
+    values.forEach((val, i) => {
+      document.getElementById('v' + i).innerText = val;
+      let h = (val / maxGraphVal) * 100; 
+      if(h>100) h=100;
+      document.getElementById('b' + i).style.height = h + "%";
+    });
+  }
+</script>
+</body>
+</html>
