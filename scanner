@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>QR Code & Manual Attendance</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  
+  <!-- Loads the html5-qrcode library securely from the CDN -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    body { padding-top: 15px; background-color: #f8f9fa; }
+    .container { max-width: 700px; }
+    #qr-reader {
+      width: 80vw; max-width: 600px; margin: 10px auto;
+      border: 1px solid #ccc; border-radius: 8px; overflow: hidden;
+    }
+    #qr-reader video { border-radius: 7px; }
+    .status-message-container { min-height: 70px; display: flex; align-items: center; justify-content: center; }
+    .status-message { margin-top: 15px; font-size: 1.1em; width: 100%; text-align: center; }
+    .action-button { margin-top: 15px; font-weight: bold; }
+    h1, h2 { color: #333; text-align: center; margin-bottom: 0.75rem; }
+    .manual-entry-section { background-color: #e9ecef; padding: 20px; border-radius: 8px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Coloquio Estudiantil</h1>
+    
+    <div class="row">
+      <div class="col-12 text-center mb-2">
+        <h2>QR Scanner <span style="font-size: 0.6em;">📱</span></h2>
+      </div>
+      <div class="col-12">
+        <div id="qr-reader"></div>
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col-12">
+        <input class="btn btn-info btn-lg btn-block action-button" type="button" 
+               value="Scan QR ID to enable..." id="scannedValueBtn" 
+               onclick="processQRScannedValue()" disabled />
+      </div>
+    </div>
+
+    <div class="manual-entry-section">
+        <div class="row">
+            <div class="col-12 text-center mb-2">
+                <h2>Manual Registration <span style="font-size: 0.6em;">✍️</span></h2>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="manualParticipantName"><b>Select or Type Participant Name:</b></label>
+            <input type="text" class="form-control form-control-lg" id="manualParticipantName" list="participantDatalist" placeholder="Start typing a name...">
+            <datalist id="participantDatalist"></datalist>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block action-button" id="manualRegisterBtn" onclick="processManualRegistration()">
+            Register Manually
+        </button>
+    </div>
+
+    <!-- ON-SCREEN LOG -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <h4 class="text-center">Registration Log</h4>
+        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; border-radius: 8px; background: white;">
+          <table class="table table-sm table-striped mb-0">
+            <thead class="thead-dark">
+              <tr><th>Time</th><th>Name / ID</th><th>Status</th></tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-3">
+      <div class="col-12 status-message-container">
+        <div id="statusMessage" class="alert" role="alert" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ==========================================
+  // PASTE YOUR NEW APPS SCRIPT WEB APP URL HERE:
+  const API_URL = "https://script.google.com/macros/s/AKfycbzuOacrNP4ncPHPV7ap9rTPGxxzBPq_HJBD-oBLrljde5le6bkBaItXrDzBi9v9fV2v/exec";
+  // ==========================================
+
+  let uniqueIdFromQR = null;
+  let html5QrcodeScannerInstance = null;
+  
+  let participantList = []; 
+  let participantMap = {}; 
+  let scanQueue = [];
+  let isSyncing = false;
+  let scanCounter = 0;
+
+  function onScanSuccess(decodedText, decodedResult) {
+    let processedId = null;
+    try {
+      processedId = decodedText.trim(); 
+    } catch (e) {
+      processedId = decodedText.trim();
+    }
+
+    if (processedId && processedId !== "") {
+        uniqueIdFromQR = processedId;
+        
+        let localName = participantMap[uniqueIdFromQR];
+        let displayName = localName ? localName : `Unknown ID: ${uniqueIdFromQR}`;
+        
+        document.getElementById("scannedValueBtn").value = `Confirm: ${displayName}`;
+        document.getElementById("scannedValueBtn").disabled = false;
+        document.getElementById("scannedValueBtn").className = 'btn btn-primary btn-lg btn-block action-button';
+        hideStatusMessage(); 
+    }
+  }
+
+  function onScanFailure(error) { }
+
+  function processQRScannedValue() { 
+    if (uniqueIdFromQR) submitAttendance(uniqueIdFromQR, "scannedValueBtn");
+  }
+
+  function processManualRegistration() {
+    const manualInput = document.getElementById("manualParticipantName").value;
+    if (!manualInput || manualInput.trim() === "") return;
+
+    let selectedId = null;
+    const match = manualInput.match(/\(ID:\s*([^)]+)\)/); 
+    
+    if (match && match[1]) {
+        selectedId = match[1].trim();
+    } else {
+        const foundParticipant = participantList.find(p => p.name.toLowerCase() === manualInput.toLowerCase().trim());
+        if (foundParticipant) selectedId = foundParticipant.id;
+        else {
+            showStatusMessage("Participant not found.", "danger");
+            return;
+        }
+    }
+    
+    if (selectedId) {
+        document.getElementById("manualParticipantName").value = ""; 
+        submitAttendance(selectedId, "manualRegisterBtn");
+    }
+  }
+
+  function submitAttendance(idToRegister, buttonId) {
+    const button = document.getElementById(buttonId);
+    const originalButtonText = button.value || button.textContent; 
+    
+    if (button.tagName === 'INPUT') button.value = "✅ Queued!"; else button.textContent = "✅ Queued!";
+    button.className = 'btn btn-success btn-lg btn-block action-button'; 
+    button.disabled = true;
+
+    setTimeout(() => { 
+        if (button.tagName === 'INPUT') button.value = originalButtonText; else button.textContent = originalButtonText;
+        button.disabled = (button.id === 'scannedValueBtn'); 
+        if (button.id !== 'scannedValueBtn') button.disabled = false; 
+        button.className = 'btn btn-info btn-lg btn-block action-button'; 
+        if(button.id === 'scannedValueBtn') uniqueIdFromQR = null; 
+    }, 1200);
+
+    scanCounter++;
+    let clientId = 'scan_' + Date.now() + '_' + scanCounter;
+    let ts = Date.now();
+    let displayName = participantMap[idToRegister] || idToRegister;
+    
+    let tbody = document.getElementById('logBody');
+    let tr = document.createElement('tr');
+    tr.id = 'row_' + clientId;
+    let timeStr = new Date(ts).toLocaleTimeString();
+    
+    tr.innerHTML = `<td>${timeStr}</td><td>${displayName}</td><td><span class="badge badge-warning" id="badge_${clientId}">Pending</span></td>`;
+    tbody.prepend(tr);
+
+    scanQueue.push({ clientId: clientId, id: idToRegister, ts: ts });
+
+    if (scanQueue.length >= 3 && !isSyncing) flushQueue();
+  }
+
+  function flushQueue() {
+    if (isSyncing || scanQueue.length === 0) return;
+    isSyncing = true;
+    
+    let batch = scanQueue.slice(0, 50);
+    
+    batch.forEach(scan => {
+        let badge = document.getElementById('badge_' + scan.clientId);
+        if(badge) { badge.className = 'badge badge-info'; badge.textContent = 'Syncing...'; }
+    });
+
+    // The new decouple API call replacing google.script.run
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'syncAttendance', scans: batch })
+    })
+    .then(response => response.json())
+    .then(results => {
+        results.forEach(res => {
+            let badge = document.getElementById('badge_' + res.clientId);
+            if(badge) {
+                if(res.status === 'ok') {
+                    badge.className = 'badge badge-success'; badge.textContent = 'Saved';
+                } else if(res.status === 'notfound') {
+                    badge.className = 'badge badge-dark'; badge.textContent = 'Not Found';
+                } else {
+                    badge.className = 'badge badge-danger'; badge.textContent = 'Retry';
+                }
+            }
+        });
+        
+        scanQueue = scanQueue.filter(scan => {
+            let res = results.find(r => r.clientId === scan.clientId);
+            if (res && (res.status === 'ok' || res.status === 'notfound')) return false; 
+            return true; 
+        });
+        isSyncing = false;
+    })
+    .catch(error => {
+        console.error("Batch sync failed:", error);
+        batch.forEach(scan => {
+            let badge = document.getElementById('badge_' + scan.clientId);
+            if(badge) { badge.className = 'badge badge-danger'; badge.textContent = 'Retry'; }
+        });
+        isSyncing = false;
+    });
+  }
+
+  setInterval(flushQueue, 5000);
+  
+  function showStatusMessage(message, type = "info") { 
+    var statusDiv = document.getElementById('statusMessage');
+    statusDiv.textContent = message;
+    statusDiv.className = 'alert status-message alert-' + type; 
+    statusDiv.style.display = 'block';
+    setTimeout(hideStatusMessage, 5000);
+  }
+  
+  function hideStatusMessage() { 
+    document.getElementById('statusMessage').style.display = 'none';
+  }
+
+  function fetchParticipants() {
+    showStatusMessage("Loading participant roster...", "info");
+    
+    // The new decouple API call replacing google.script.run
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getParticipants' })
+    })
+    .then(res => res.json())
+    .then(response => {
+        if (response.error) {
+            showStatusMessage("Error loading participants: " + response.error, "danger");
+            return;
+        }
+        
+        participantList = response.participants || []; 
+        participantMap = {}; 
+        
+        const datalist = document.getElementById('participantDatalist');
+        datalist.innerHTML = ''; 
+
+        if (participantList.length === 0) {
+            showStatusMessage("No participants found in the sheet.", "warning");
+            return;
+        }
+
+        participantList.forEach(participant => {
+            participantMap[participant.id] = participant.name;
+            const option = document.createElement('option');
+            option.value = `${participant.name} (ID: ${participant.id})`;
+            datalist.appendChild(option);
+        });
+        
+        hideStatusMessage(); 
+    })
+    .catch(error => showStatusMessage("Failed to load participant list.", "danger"));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+        html5QrcodeScannerInstance = new Html5QrcodeScanner(
+          "qr-reader", 
+          { 
+            fps: 10, 
+            qrbox: function(vw, vh) { return { width: Math.floor(Math.min(vw, vh) * 0.8), height: Math.floor(Math.min(vw, vh) * 0.8) }; },
+            rememberLastUsedCamera: true,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] 
+          },
+          false 
+        );
+        html5QrcodeScannerInstance.render(onScanSuccess, onScanFailure);
+    } catch (err) {
+        showStatusMessage("ERROR: Could not initialize QR Scanner. " + err.message, "danger");
+    }
+
+    fetchParticipants();
+  });
+  </script>
+</body>
+</html>
