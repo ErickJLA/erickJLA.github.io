@@ -91,9 +91,19 @@
   .stepper select { width: auto; min-width: 96px; padding: 7px 8px; }
   .stepper button { width: 38px; padding: 6px 0; font-size: 16px; }
   .seg button:disabled { opacity: .4; }
-  .ratio-out { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-  .ratio-out .big { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .ratio-out .big.warn { color: var(--warn); }
+  .ratiobox { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .rsel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rsel select { width: auto; min-width: 110px; padding: 7px 8px; }
+  .rsel .div { font-size: 18px; color: var(--text2); }
+  .rvals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .rv { background: var(--panel2); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  .rv .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+  .rv .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv .sm { font-size: 11px; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv .big.warn { color: var(--warn); }
+  .chk { display: flex; gap: 6px; align-items: center; margin: 0; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text2); }
+  .chk input { width: auto; }
+  @media (max-width: 520px) { .rvals { grid-template-columns: 1fr 1fr; } .rvals .rv:first-child { grid-column: 1 / -1; } }
   .demo { border-color: #5a4a12; }
   .demo h2 { color: var(--warn); }
   .demo .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -141,7 +151,7 @@
       <button id="gUp" disabled aria-label="Higher gain">+</button>
     </div>
   </div>
-  <div class="hint" id="gainHint">Manual gain keeps the gain fixed even when channels saturate: saturated channels are dropped from absorbance and ratios, the rest are kept.</div>
+  <div class="hint" id="gainHint">Manual gain keeps the gain fixed even when channels saturate: saturated channels are dropped from absorbance, the rest are kept.</div>
 </section>
 
 <section id="demoPanel" class="demo" hidden>
@@ -173,6 +183,25 @@
   </div>
   <div class="bars" id="liveBars"></div>
   <div class="hint" id="liveHint">Connect the sensor to see live readings.</div>
+  <div class="ratiobox">
+    <div class="row-between" style="margin-bottom:8px">
+      <h2 style="margin:0">Live ratio</h2>
+      <label class="chk"><input type="checkbox" id="rDark" checked> subtract dark</label>
+    </div>
+    <div class="rsel">
+      <select id="rA" aria-label="Numerator channel"></select>
+      <span class="div">÷</span>
+      <select id="rB" aria-label="Denominator channel"></select>
+      <button class="small" id="rSwap" title="Swap channels">⇄</button>
+      <button class="small" id="rReset" title="Restart the running average">Reset avg</button>
+    </div>
+    <div class="rvals">
+      <div class="rv"><div class="k">Ratio · now</div><div class="big" id="rNow">–</div><div class="sm" id="rNowSub">&nbsp;</div></div>
+      <div class="rv"><div class="k" id="rAName">A</div><div class="big" id="rAVal">–</div><div class="sm" id="rASub">&nbsp;</div></div>
+      <div class="rv"><div class="k" id="rBName">B</div><div class="big" id="rBVal">–</div><div class="sm" id="rBSub">&nbsp;</div></div>
+    </div>
+    <div class="hint" id="rHint">Same frame, same gain: the ratio of the two channels as it arrives. The average resets when you change gain or channels.</div>
+  </div>
 </section>
 
 <section>
@@ -233,28 +262,6 @@
   <div class="tablewrap" style="margin-top:12px">
     <table id="resTable"></table>
   </div>
-</section>
-
-<section id="ratioSec">
-  <div class="row-between">
-    <h2>Channel ratio · leak check</h2>
-    <div class="seg" id="ratioPreset">
-      <button data-p="F8/F6">F8 / F6</button>
-      <button data-p="F7/F6">F7 / F6</button>
-    </div>
-  </div>
-  <div class="grid2">
-    <div class="field"><label for="rSigCap">Signal capture</label><select id="rSigCap"></select></div>
-    <div class="field"><label for="rSigCh">Signal channel</label><select id="rSigCh"></select></div>
-    <div class="field"><label for="rRefCap">Reference capture</label><select id="rRefCap"></select></div>
-    <div class="field"><label for="rRefCh">Reference channel</label><select id="rRefCh"></select></div>
-  </div>
-  <div class="ratio-out"><div class="big" id="rOut">–</div><div class="hint" style="margin:0" id="rSub"></div></div>
-  <div class="tablewrap" style="margin-top:8px"><table id="rTable"></table></div>
-  <div class="hint">Leak test: put medium in the clamp and switch on the excitation LED. Capture a <b>blank</b> in Manual at a low gain
-    where F6 is not saturated, then another at a high gain where F8 reads well above dark (F6 may saturate there).
-    Take a <b>dark</b> at each gain you use. Ratios use dark-subtracted counts per ms at 1x, so the two captures can be at
-    different gains; the AS7341 gain steps are not exactly 2×, so expect a few % error between gains.</div>
 </section>
 
 <section>
@@ -433,6 +440,7 @@ function tryFrame(line) {
   else if (chSat.some(Boolean)) setState('Stable · ' + CHANNELS.filter((c, i) => chSat[i]).map(c => c.k).join(' ') + ' sat.', 'warn');
   else setState('Stable', 'good');
   renderLive(frame);
+  updateRatio(frame);
   feedCapture(frame);
 }
 
@@ -547,7 +555,7 @@ function finishCapture() {
   save();
   progress(1);
   note(`${c.type.toLowerCase()} saved (${k} frames at ${fmtGain(c.gain)})${flags.length ? ' · ' + flags.join(' · ') : ''}`);
-  updateButtons(); renderRefs(); renderLog(); renderResult(); renderRatio();
+  updateButtons(); renderRefs(); renderLog(); renderResult();
 }
 
 function progress(p) { $('prog').style.width = Math.round(p * 100) + '%'; }
@@ -575,7 +583,7 @@ function setBars(id, values, labels, max) {
     t.textContent = labels[i];
   });
 }
-function buildLiveBars() { makeBars($('liveBars'), S.nCh, 'L'); }
+function buildLiveBars() { makeBars($('liveBars'), S.nCh, 'L'); fillRatioSelects(); }
 
 let liveMax = 1;
 function renderLive(fr) {
@@ -708,76 +716,64 @@ function renderGainUI(pendingOnly) {
 }
 
 /* ============================================================
-   Channel ratio (leak check): dark-subtracted counts/ms at 1x, so captures at different gains combine
+   Live ratio between any two channels (same frame -> same gain, so raw counts compare directly)
    ============================================================ */
-function ratioCaptures() { return S.log.filter(r => r.type !== 'DARK'); }
-function capLabel(r) { return `${timeStr(r.time)} · ${r.type} · ${r.source || '–'} · ${fmtGain(r.gain)}${r.gainMode === 'manual' ? ' M' : ''}`; }
+const LR = { buf: [], key: '' };
+const LR_KEY = 'spirulinaPhotometer.ratioCh';
+function fillRatioSelects() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(LR_KEY) || '{}'); } catch (e) {}
+  [['rA', saved.a || 'F8'], ['rB', saved.b || 'F6']].forEach(([id, def]) => {
+    const sel = $(id), cur = sel.value || def;
+    sel.innerHTML = CHANNELS.slice(0, S.nCh).map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
+    sel.value = CHANNELS.slice(0, S.nCh).some(c => c.k === cur) ? cur : def;
+    if (!sel.value) sel.selectedIndex = 0;
+  });
+}
+function ratioChanged() {
+  try { localStorage.setItem(LR_KEY, JSON.stringify({ a: $('rA').value, b: $('rB').value })); } catch (e) {}
+  LR.buf = []; LR.key = '';
+  if (S.last) updateRatio(S.last, false);
+}
+function fmtRatio(r) {
+  if (r === null || !isFinite(r)) return '–';
+  const pct = 100 * r;
+  if (Math.abs(pct) >= 100) return r.toPrecision(3) + '×';
+  if (Math.abs(pct) >= 0.01) return pct.toPrecision(3) + ' %';
+  return pct.toExponential(2) + ' %';
+}
+function updateRatio(fr, push = true) {
+  const ia = CHANNELS.findIndex(c => c.k === $('rA').value), ib = CHANNELS.findIndex(c => c.k === $('rB').value);
+  if (ia < 0 || ib < 0 || ia >= fr.vals.length || ib >= fr.vals.length) return;
+  const dk = $('rDark').checked ? S.darks[fr.gain] : null;          // dark taken at exactly this gain
+  const darkOk = !!(dk && dk.raw[ia] !== undefined && dk.raw[ib] !== undefined);
+  const a = fr.vals[ia] - (darkOk ? dk.raw[ia] : 0), b = fr.vals[ib] - (darkOk ? dk.raw[ib] : 0);
+  const satA = fr.chSat[ia], satB = fr.chSat[ib];
+  const key = `${ia}|${ib}|${fr.gain}|${darkOk}`;
+  if (key !== LR.key) { LR.key = key; LR.buf = []; }
+  const valid = !satA && !satB && b > 0;
+  const r = valid ? a / b : null;
+  if (push && valid) { LR.buf.push(r); if (LR.buf.length > 20) LR.buf.shift(); }
+  const n = LR.buf.length;
+  const mean = n ? LR.buf.reduce((x, y) => x + y, 0) / n : null;
+  const sd = n > 1 ? Math.sqrt(LR.buf.reduce((x, y) => x + (y - mean) ** 2, 0) / (n - 1)) : null;
 
-function chOptions(sel, n, def) {
-  const cur = sel.value || def;
-  sel.innerHTML = CHANNELS.slice(0, n).map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
-  sel.value = CHANNELS.slice(0, n).some(c => c.k === cur) ? cur : def;
-}
-function capOptions(sel) {
-  const cur = sel.value || 'auto';
-  const caps = ratioCaptures();
-  sel.innerHTML = `<option value="auto">Latest usable (auto)</option>` +
-    [...caps].reverse().map(r => `<option value="${r.id}">${capLabel(r)}</option>`).join('');
-  sel.value = (cur === 'auto' || caps.some(r => r.id === cur)) ? cur : 'auto';
-}
-function pickCapture(selVal, chIdx) {
-  const caps = ratioCaptures();
-  if (selVal !== 'auto') return caps.find(r => r.id === selVal) || null;
-  // latest capture where this channel is not saturated and has the most dark-subtracted counts among recent ones
-  const ok = [...caps].reverse().filter(r => chIdx < r.nCh && !(r.satCh && r.satCh[chIdx]));
-  if (!ok.length) return null;
-  const sameSrc = ok.filter(r => r.source === ok[0].source && r.type === ok[0].type).slice(0, 6);
-  return sameSrc.reduce((best, r) => (r.raw[chIdx] > best.raw[chIdx] ? r : best), sameSrc[0]);
-}
-function netInfo(r, i) {
-  const dk = nearestDark(r.gain);
-  const exactDark = !!S.darks[r.gain];
-  const d = dk && dk.norm[i] !== undefined ? dk.norm[i] : 0;
-  const net = r.norm[i] - d;
-  const se = (r.sd[i] / Math.sqrt(Math.max(1, r.frames))) / (r.gain * r.tint);
-  const netCounts = net * r.gain * r.tint;
-  const notes = [];
-  if (r.satCh && r.satCh[i]) notes.push('saturated');
-  if (!dk) notes.push('no dark');
-  else if (!exactDark) notes.push(`dark from ${fmtGain(dk.gain)}`);
-  if (netCounts < 30) notes.push('near dark level: raise gain');
-  return { net, se, netCounts, notes, sat: r.satCh && r.satCh[i] };
-}
-function renderRatio() {
-  const n = Math.max(S.nCh, ...S.log.map(r => r.nCh), 8);
-  chOptions($('rSigCh'), n, 'F8'); chOptions($('rRefCh'), n, 'F6');
-  capOptions($('rSigCap')); capOptions($('rRefCap'));
-  const si = CHANNELS.findIndex(c => c.k === $('rSigCh').value), ri = CHANNELS.findIndex(c => c.k === $('rRefCh').value);
-  const sig = pickCapture($('rSigCap').value, si), ref = pickCapture($('rRefCap').value, ri);
-  [...$('ratioPreset').children].forEach(b => b.classList.toggle('on', b.dataset.p === `${$('rSigCh').value}/${$('rRefCh').value}`));
-  const out = $('rOut'), sub = $('rSub');
-  if (!sig || !ref) {
-    out.textContent = '–'; out.className = 'big';
-    sub.textContent = ratioCaptures().length ? 'No unsaturated capture for the selected channel yet.' : 'Capture a blank or sample first.';
-    $('rTable').innerHTML = ''; return;
-  }
-  const a = netInfo(sig, si), b = netInfo(ref, ri);
-  const rows = [['Signal', sig, si, a], ['Reference', ref, ri, b]].map(([lab, r, i, x]) =>
-    `<tr><td>${lab}</td><td>${CHANNELS[i].k}</td><td>${fmtGain(r.gain)}</td><td>${Math.round(r.raw[i])}</td>
-     <td>${x.net.toPrecision(4)}</td><td style="text-align:left;white-space:normal;min-width:150px"><span class="dim">${capLabel(r)}</span>${x.notes.length ? ' · <span style="color:var(--warn)">' + x.notes.join(' · ') + '</span>' : ''}</td></tr>`).join('');
-  $('rTable').innerHTML = `<tr><th>Role</th><th>Ch.</th><th>Gain</th><th>Raw</th><th>Net / ms @1x</th><th style="text-align:left">Capture · checks</th></tr>${rows}`;
-  if (a.sat || b.sat || !(b.net > 0)) {
-    out.textContent = 'n/a'; out.className = 'big warn';
-    sub.textContent = a.sat || b.sat ? 'A selected channel is saturated in that capture.' : 'Reference is at or below dark.';
-    return;
-  }
-  const ratio = a.net / b.net;
-  const rel = Math.sqrt((a.se / Math.max(Math.abs(a.net), 1e-12)) ** 2 + (b.se / b.net) ** 2);
-  const pct = 100 * ratio;
-  out.textContent = (Math.abs(pct) >= 0.1 ? pct.toPrecision(3) : pct.toExponential(2)) + ' %';
-  out.className = 'big' + (a.notes.length || b.notes.length ? ' warn' : '');
-  sub.textContent = `${$('rSigCh').value} / ${$('rRefCh').value} = ${ratio.toExponential(2)} ± ${(100 * rel).toFixed(1)}% (frame noise only)` +
-    (sig.gain !== ref.gain ? ` · across gains ${fmtGain(sig.gain)} / ${fmtGain(ref.gain)}` : '');
+  const now = $('rNow');
+  now.textContent = satA || satB ? 'SAT' : fmtRatio(r);
+  now.className = 'big' + (satA || satB || !valid ? ' warn' : '');
+  $('rNowSub').textContent = n ? `avg ${fmtRatio(mean)} (n=${n}${sd !== null && mean ? ', ±' + (100 * sd / Math.abs(mean) / Math.sqrt(n)).toFixed(1) + '%' : ''})` : ' ';
+  [['A', ia, a, satA, fr.vals[ia]], ['B', ib, b, satB, fr.vals[ib]]].forEach(([s, i, net, sat, raw]) => {
+    $('r' + s + 'Name').textContent = `${CHANNELS[i].k} · ${CHANNELS[i].wl}`;
+    const v = $('r' + s + 'Val');
+    v.textContent = sat ? 'SAT' : Math.round(darkOk ? net : raw).toString();
+    v.className = 'big' + (sat ? ' warn' : '');
+    $('r' + s + 'Sub').textContent = darkOk ? `raw ${raw} − dark ${Math.round(dk.raw[i])}` : `raw counts · ${fmtGain(fr.gain)}`;
+  });
+  const hint = $('rHint');
+  if (satA || satB) hint.textContent = `${satB ? CHANNELS[ib].k : CHANNELS[ia].k} is saturated at ${fmtGain(fr.gain)}: lower the gain (Manual) until both channels read below 60 000.`;
+  else if ($('rDark').checked && !darkOk) hint.textContent = `No dark at ${fmtGain(fr.gain)} yet: showing raw counts. Capture a Dark (LED off) at this gain to subtract it.`;
+  else if (a < 50) hint.textContent = `${CHANNELS[ia].k} is only ${Math.round(a)} counts above dark: raise the gain if ${CHANNELS[ib].k} allows it.`;
+  else hint.textContent = `Same frame, same gain (${fmtGain(fr.gain)}). The average uses the last 20 frames; it resets when gain or channels change, or with Reset avg.`;
 }
 
 /* ============================================================
@@ -881,7 +877,7 @@ $('bSample').onclick = () => startCapture('SAMPLE');
 $('bExport').onclick = exportCSV;
 $('bClear').onclick = () => {
   if (!confirm('Delete all captures, blanks and darks stored in this browser?')) return;
-  S.log = []; S.darks = {}; S.blanks = {}; S.lastSample = null; save(); renderRefs(); renderLog(); renderResult(); renderRatio(); note('Log cleared.');
+  S.log = []; S.darks = {}; S.blanks = {}; S.lastSample = null; save(); renderRefs(); renderLog(); renderResult(); note('Log cleared.');
 };
 $('logTable').addEventListener('click', e => {
   const id = e.target.dataset && e.target.dataset.del; if (!id) return;
@@ -891,7 +887,7 @@ $('logTable').addEventListener('click', e => {
   Object.keys(S.darks).forEach(k => { if (S.darks[k].id === id) delete S.darks[k]; });
   Object.keys(S.blanks).forEach(k => { if (S.blanks[k].id === id) delete S.blanks[k]; });
   if (S.lastSample && S.lastSample.id === id) S.lastSample = [...S.log].reverse().find(x => x.type === 'SAMPLE') || null;
-  save(); renderRefs(); renderLog(); renderResult(); renderRatio();
+  save(); renderRefs(); renderLog(); renderResult();
 });
 $('viewSeg').addEventListener('click', e => {
   const v = e.target.dataset.v; if (!v) return;
@@ -912,13 +908,12 @@ $('modeSeg').addEventListener('click', e => {
 $('gSel').onchange = () => requestGain('M', parseInt($('gSel').value, 10));
 $('gDown').onclick = () => requestGain('M', parseInt($('gSel').value, 10) - 1);
 $('gUp').onclick = () => requestGain('M', parseInt($('gSel').value, 10) + 1);
-['rSigCap', 'rRefCap', 'rSigCh', 'rRefCh'].forEach(id => $(id).onchange = renderRatio);
-$('ratioPreset').addEventListener('click', e => {
-  const p = e.target.dataset.p; if (!p) return;
-  const [a, b] = p.split('/'); $('rSigCh').value = a; $('rRefCh').value = b; renderRatio();
-});
+['rA', 'rB'].forEach(id => $(id).onchange = ratioChanged);
+$('rDark').onchange = ratioChanged;
+$('rReset').onclick = ratioChanged;
+$('rSwap').onclick = () => { const a = $('rA').value; $('rA').value = $('rB').value; $('rB').value = a; ratioChanged(); };
 
-load(); buildLiveBars(); renderRefs(); renderLog(); renderResult(); updateButtons(); renderGainUI(); renderRatio();
+load(); buildLiveBars(); renderRefs(); renderLog(); renderResult(); updateButtons(); renderGainUI();
 if (new URLSearchParams(location.search).has('demo')) startDemo();
 </script>
 </body>
