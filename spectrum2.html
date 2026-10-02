@@ -101,6 +101,18 @@
   .rv .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rv .sm { font-size: 11px; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rv .big.warn { color: var(--warn); }
+  .fverdict { font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 7px; background: var(--panel2); color: var(--text2); }
+  .fverdict.good { background: #173b28; color: #8fdbb0; }
+  .fverdict.warn { background: #3d3112; color: #f0c766; }
+  .fverdict.bad { background: #3f1a1b; color: #f2a3a5; }
+  .inl { display: flex; align-items: center; gap: 6px; margin: 0; }
+  .inl select { width: auto; min-width: 96px; padding: 7px 8px; }
+  #fTrend { width: 100%; height: 86px; display: block; margin-top: 10px; background: var(--panel2); border-radius: 8px; }
+  #fTrend .ax { stroke: var(--line); stroke-width: 1; }
+  #fTrend .zero { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  #fTrend .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+  #fTrend text { fill: var(--muted); font-size: 10px; }
+  tr.ex td { color: var(--text2); }
   .chk { display: flex; gap: 6px; align-items: center; margin: 0; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text2); }
   .chk input { width: auto; }
   @media (max-width: 520px) { .rvals { grid-template-columns: 1fr 1fr; } .rvals .rv:first-child { grid-column: 1 / -1; } }
@@ -161,6 +173,8 @@
     <select id="dContent" style="width:auto">
       <option value="medium">Clamp: medium only</option>
       <option value="culture" selected>Clamp: culture</option>
+      <option value="ink">Clamp: ink (non-fluorescent)</option>
+      <option value="milk">Clamp: milk (scatter)</option>
     </select>
     <span class="hint" style="margin:0">Demo LED follows the “Light source” field (White, 850 nm, 590 nm amber).</span>
     <span class="hint" style="margin:0">Density</span>
@@ -202,6 +216,63 @@
     </div>
     <div class="hint" id="rHint">Same frame, same gain: the ratio of the two channels as it arrives. The average resets when you change gain or channels.</div>
   </div>
+</section>
+
+<section id="fluoSec">
+  <div class="row-between">
+    <h2>Fluorescence check</h2>
+    <span class="fverdict" id="fVerdict">No reference</span>
+  </div>
+  <div class="rsel">
+    <label class="inl" for="fEx">Excitation <select id="fEx"></select></label>
+    <label class="inl" for="fEm">Emission <select id="fEm"></select></label>
+  </div>
+  <div class="actions" style="margin-top:8px">
+    <button class="small primary" id="fSetRef">Set leak reference (medium)</button>
+    <button class="small" id="fReset">Reset avg</button>
+  </div>
+  <div class="progress"><div id="fProg"></div></div>
+  <div class="msg" id="fRefMsg"></div>
+  <div class="rvals">
+    <div class="rv"><div class="k">Excess over leak</div><div class="big" id="fExcess">–</div><div class="sm" id="fExcessSub">&nbsp;</div></div>
+    <div class="rv"><div class="k">Measured ÷ leak</div><div class="big" id="fEnh">–</div><div class="sm" id="fEnhSub">&nbsp;</div></div>
+    <div class="rv"><div class="k">Fluorescence index</div><div class="big" id="fFI">–</div><div class="sm" id="fFISub">&nbsp;</div></div>
+  </div>
+  <svg id="fTrend" viewBox="0 0 400 86" preserveAspectRatio="none" role="img" aria-label="Fluorescence index over time"></svg>
+  <div class="hint" id="fTrendHint">Fluorescence index, last ~2 minutes.</div>
+  <div class="tablewrap" style="margin-top:10px"><table id="fTable"></table></div>
+  <div class="actions">
+    <input id="fLabel" placeholder="Label, e.g. medium / ink / culture 0.5 g/L" style="flex:1;min-width:160px">
+    <button class="small" id="fSave">Save reading</button>
+    <button class="small" id="fExport">Export readings</button>
+  </div>
+  <div class="tablewrap" style="margin-top:8px"><table id="fSaved"></table></div>
+  <details style="margin-top:12px">
+    <summary>How to tell it's really fluorescence</summary>
+    <div class="hint" style="margin-top:0">
+      <b>Idea.</b> With medium only, everything the red channels see is LED leak, and it is a fixed fraction of the
+      excitation channel (e.g. F8 = k × F6). The reference learns k. With cells, the app predicts the leak from the
+      excitation actually reaching the sensor (k × F6 now) and shows what is left over: that excess is the candidate
+      fluorescence. The fluorescence index is that excess divided by the excitation measured in medium, so it does not
+      depend on gain.<br><br>
+      <b>Procedure.</b> 1) Manual gain at the highest level where the excitation channel stays below 60 000 with medium.
+      2) LED off: capture a Dark at that gain. 3) Medium, LED on: <i>Set leak reference</i>. 4) Put the culture in,
+      same LED: read Excess and the verdict (detected = more than 5σ and at least 10% above the leak).<br><br>
+      <b>Controls that prove it.</b>
+      a) <i>Non-fluorescent absorber</i>: a few drops of India ink or black food dye in medium, diluted until the
+      excitation channel drops about as much as with your culture. Measured ÷ leak should stay near 1.0; whatever it
+      shows is your false-positive floor, and the culture must clearly exceed it.
+      b) <i>Scatterer</i>: diluted milk, same expectation (≈1.0).
+      c) <i>No excitation</i>: with the 850 nm LED nothing is absorbed by the pigments, so there is no excess.
+      d) <i>Living signal</i>: dark-adapt the culture 5–10 min, switch the LED on and watch the trend. Chlorophyll
+      fluorescence changes over the first tens of seconds (induction); leak and absorption do not.
+      e) <i>Dose</i>: a dilution series should give an excess that rises with cells and flattens at high density.
+      f) <i>Colour</i>: the excess should sit in F8 (680) more than F7 (630), and should not appear at wavelengths
+      shorter than the LED. Channels below the LED can still move with absorption, which is why a) matters.<br><br>
+      In this transmission geometry part of the fluorescence is re-absorbed on its way to the sensor, so a front-face
+      sensor would see more; a recovered excess here already shows the sensor can see it.
+    </div>
+  </details>
 </section>
 
 <section>
@@ -375,6 +446,8 @@ function setLink(on) {
   $('conBtn').textContent = on ? 'Connected' : 'Connect';
   $('conBtn').disabled = on;
   updateButtons(); renderGainUI();
+  $('fSetRef').disabled = !on || !!FL.collect;
+  if (!on && FL.collect) { FL.collect = null; $('fRefMsg').textContent = 'Reference stopped: sensor disconnected.'; }
 }
 
 /* ============================================================
@@ -441,6 +514,7 @@ function tryFrame(line) {
   else setState('Stable', 'good');
   renderLive(frame);
   updateRatio(frame);
+  updateFluo(frame);
   feedCapture(frame);
 }
 
@@ -583,7 +657,7 @@ function setBars(id, values, labels, max) {
     t.textContent = labels[i];
   });
 }
-function buildLiveBars() { makeBars($('liveBars'), S.nCh, 'L'); fillRatioSelects(); }
+function buildLiveBars() { makeBars($('liveBars'), S.nCh, 'L'); fillRatioSelects(); fillFluoSelects(false); }
 
 let liveMax = 1;
 function renderLive(fr) {
@@ -777,6 +851,198 @@ function updateRatio(fr, push = true) {
 }
 
 /* ============================================================
+   Fluorescence check: leak model learned in medium, excess with cells
+   ============================================================ */
+const FL_KEY = STORE_KEY + '.fluo';
+const FL = { refs: {}, saved: [], collect: null, buf: [], key: '', trend: [] };
+const EX_DEFAULT = { '590 nm amber': 'F6', '450 nm blue': 'F2', '620 nm': 'F7', '660 nm': 'F8', '850 nm': 'NIR' };
+function flSave() { try { localStorage.setItem(FL_KEY, JSON.stringify({ refs: FL.refs, saved: FL.saved })); } catch (e) {} }
+function flLoad() { try { const d = JSON.parse(localStorage.getItem(FL_KEY) || 'null'); if (d) { FL.refs = d.refs || {}; FL.saved = d.saved || []; } } catch (e) {} }
+const chIdx = k => CHANNELS.findIndex(c => c.k === k);
+function wlNum(i) { const w = parseFloat(CHANNELS[i].wl); return isFinite(w) ? w : null; }
+
+function fillFluoSelects(fromSource) {
+  const opts = CHANNELS.slice(0, S.nCh).map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
+  const ex = $('fEx'), em = $('fEm');
+  const curEx = fromSource ? (EX_DEFAULT[source()] || ex.value || 'F6') : (ex.value || EX_DEFAULT[source()] || 'F6');
+  const curEm = em.value || 'F8';
+  ex.innerHTML = opts; em.innerHTML = opts;
+  ex.value = chIdx(curEx) < S.nCh ? curEx : 'F6';
+  em.value = chIdx(curEm) < S.nCh ? curEm : 'F8';
+  if (em.value === ex.value) em.value = ex.value === 'F8' ? (S.nCh > 9 ? 'NIR' : 'F7') : 'F8';
+}
+const flRefKey = () => `${source()}|${$('fEx').value}`;
+function flResetAvg() { FL.buf = []; FL.key = ''; }
+
+// dark-subtracted counts per ms at 1x for every channel of a frame (null if no dark at this gain)
+function netFrame(fr) {
+  const dk = S.darks[fr.gain];
+  const scale = 1 / (fr.gain * tintMs());
+  return { net: fr.vals.map((v, i) => (v - (dk && dk.raw[i] !== undefined ? dk.raw[i] : 0)) * scale), dark: !!dk };
+}
+
+function startFluoRef() {
+  if (!S.connected) return;
+  const ex = chIdx($('fEx').value);
+  if (!wlNum(ex)) { $('fRefMsg').textContent = 'Pick a narrow spectral channel (F1–F8) as excitation.'; return; }
+  FL.collect = { ex, key: flRefKey(), n: Math.max(5, Math.min(60, Math.round(num($('nFrames').value, 10)))), rows: [], gain: null, restarts: 0 };
+  $('fSetRef').disabled = true;
+  $('fRefMsg').textContent = 'Reference: medium in the clamp, LED on… collecting.';
+}
+function feedFluoRef(fr) {
+  const c = FL.collect; if (!c) return;
+  const fail = why => {
+    c.rows = []; c.gain = null; c.restarts++; $('fProg').style.width = '0%';
+    if (c.restarts > 6) { FL.collect = null; $('fSetRef').disabled = false; $('fRefMsg').textContent = 'Reference stopped: ' + why; }
+    else $('fRefMsg').textContent = 'Reference restarting: ' + why;
+  };
+  if (fr.chSat[c.ex]) return fail(`${CHANNELS[c.ex].k} is saturated, lower the gain.`);
+  if (c.gain !== null && fr.gain !== c.gain) return fail('gain changed.');
+  const { net, dark } = netFrame(fr);
+  if (!(net[c.ex] > 0)) return fail('no excitation light: is the LED on?');
+  c.gain = fr.gain; c.dark = dark;
+  c.rows.push({ net, sat: fr.chSat.slice() });
+  $('fProg').style.width = Math.round(100 * c.rows.length / c.n) + '%';
+  if (c.rows.length < c.n) { $('fRefMsg').textContent = `Reference: ${c.rows.length}/${c.n} frames at ${fmtGain(fr.gain)}`; return; }
+  const n = c.rows[0].net.length, k = [], kse = [], sat = [];
+  for (let i = 0; i < n; i++) {
+    const rs = c.rows.map(r => r.net[i] / r.net[c.ex]);
+    const m = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const sd = Math.sqrt(rs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, rs.length - 1));
+    k.push(m); kse.push(sd / Math.sqrt(rs.length)); sat.push(c.rows.some(r => r.sat[i]));
+  }
+  const E0 = c.rows.reduce((a, r) => a + r.net[c.ex], 0) / c.rows.length;
+  FL.refs[c.key] = { ex: c.ex, k, kse, sat, E0, gain: c.gain, dark: c.dark, time: new Date().toISOString(), n: c.rows.length };
+  FL.collect = null; $('fSetRef').disabled = !S.connected; $('fProg').style.width = '100%';
+  flSave(); flResetAvg(); FL.trend = [];
+  renderFluoRef();
+}
+function renderFluoRef() {
+  const r = FL.refs[flRefKey()];
+  if (FL.collect) return;
+  if (!r) { $('fRefMsg').textContent = `No leak reference for ${source()} with ${$('fEx').value} as excitation yet.`; return; }
+  const em = chIdx($('fEm').value);
+  $('fRefMsg').textContent = `Reference ${timeStr(r.time)} · ${fmtGain(r.gain)} · leak ${CHANNELS[em].k}/${CHANNELS[r.ex].k} = ${fmtRatio(r.k[em])}` +
+    (r.dark ? '' : ' · taken without a dark at that gain') + (r.sat[em] ? ` · ${CHANNELS[em].k} was saturated` : '');
+}
+
+function setVerdict(txt, cls) { const v = $('fVerdict'); v.textContent = txt; v.className = 'fverdict' + (cls ? ' ' + cls : ''); }
+
+function updateFluo(fr) {
+  feedFluoRef(fr);
+  const ex = chIdx($('fEx').value), em = chIdx($('fEm').value);
+  const ref = FL.refs[flRefKey()];
+  const blankOut = () => { ['fExcess', 'fEnh', 'fFI'].forEach(id => { $(id).textContent = '–'; $(id).className = 'big'; });
+    ['fExcessSub', 'fEnhSub', 'fFISub'].forEach(id => $(id).innerHTML = '&nbsp;'); };
+  if (!ref || ref.ex !== ex || em >= fr.vals.length) {
+    setVerdict(FL.collect ? 'Learning leak…' : 'No reference'); blankOut(); $('fTable').innerHTML = ''; return;
+  }
+  const { net, dark } = netFrame(fr);
+  const sat = fr.chSat[ex] || fr.chSat[em];
+  const key = `${ex}|${em}|${fr.gain}|${ref.time}`;
+  if (key !== FL.key) { FL.key = key; FL.buf = []; }
+  const pred = ref.k.map(k => k * net[ex]);
+  const exc = net.map((v, i) => v - pred[i]);
+  const enh = net.map((v, i) => pred[i] > 0 ? v / pred[i] : null);
+  const fi = exc[em] / ref.E0;
+  if (!sat && net[ex] > 0) FL.buf.push({ exc: exc[em], fi, enh: enh[em], netEx: net[ex] });
+  if (FL.buf.length > 15) FL.buf.shift();
+  FL.trend.push(sat ? null : fi); if (FL.trend.length > 150) FL.trend.shift();
+
+  const cnt = v => v * fr.gain * tintMs();                       // back to counts at the current gain
+  const nb = FL.buf.length;
+  const mean = f => FL.buf.reduce((a, b) => a + b[f], 0) / nb;
+  let z = null, mExc = null, mFi = null, mEnh = null, se = null;
+  if (nb >= 3) {
+    mExc = mean('exc'); mFi = mean('fi'); mEnh = mean('enh'); const mEx = mean('netEx');
+    const sd = Math.sqrt(FL.buf.reduce((a, b) => a + (b.exc - mExc) ** 2, 0) / (nb - 1));
+    se = Math.sqrt((sd / Math.sqrt(nb)) ** 2 + (ref.kse[em] * mEx) ** 2);   // frame noise + uncertainty of the leak factor
+    z = se > 0 ? mExc / se : null;
+  }
+  if (sat) setVerdict(`${fr.chSat[ex] ? CHANNELS[ex].k : CHANNELS[em].k} saturated`, 'bad');
+  else if (!dark) setVerdict(`No dark at ${fmtGain(fr.gain)}`, 'warn');
+  else if (z === null) setVerdict('Collecting…');
+  else if (z >= 5 && mEnh >= 1.1) setVerdict('Fluorescence detected', 'good');
+  else if (z >= 3 && mEnh >= 1.05) setVerdict('Possible fluorescence', 'warn');
+  else if (z <= -3) setVerdict('Below leak: check reference', 'warn');
+  else setVerdict('Not distinguishable from leak');
+
+  $('fExcess').textContent = sat ? 'SAT' : `${exc[em] >= 0 ? '+' : ''}${Math.round(cnt(exc[em]))}`;
+  $('fExcess').className = 'big' + (sat ? ' warn' : '');
+  $('fExcessSub').textContent = z !== null ? `counts in ${CHANNELS[em].k} · avg ${mExc >= 0 ? '+' : ''}${Math.round(cnt(mExc))} = ${z.toFixed(1)}σ` : `counts in ${CHANNELS[em].k} at ${fmtGain(fr.gain)}`;
+  $('fEnh').textContent = sat || enh[em] === null ? '–' : enh[em].toFixed(2) + '×';
+  $('fEnhSub').textContent = mEnh !== null ? `avg ${mEnh.toFixed(2)}× · 1.00× = leak only` : '1.00× = leak only';
+  $('fFI').textContent = sat ? '–' : (1000 * fi).toFixed(2) + ' ‰';
+  $('fFISub').textContent = mFi !== null ? `avg ${(1000 * mFi).toFixed(2)} ± ${(1000 * se / ref.E0).toFixed(2)} ‰` : 'excess ÷ excitation';
+
+  // per-channel table (all spectral channels + NIR)
+  const rows = CHANNELS.slice(0, fr.vals.length).map((c, i) => {
+    if (c.k === 'Clear') return '';
+    const isEx = i === ex, below = wlNum(i) !== null && wlNum(ex) !== null && wlNum(i) < wlNum(ex);
+    const role = isEx ? 'excitation' : i === em ? 'emission' : below ? 'shorter than LED' : '';
+    const s = fr.chSat[i] || ref.sat[i];
+    const weak = !isEx && cnt(pred[i]) < 20 && cnt(net[i]) < 20;      // too few counts for a meaningful ratio
+    return `<tr class="${isEx ? 'ex' : ''}"><td>${c.k} <span class="dim">${c.wl}</span></td>
+      <td>${s ? 'SAT' : Math.round(cnt(net[i]))}</td><td>${isEx || s ? '–' : Math.round(cnt(pred[i]))}</td>
+      <td>${isEx || s ? '–' : (exc[i] >= 0 ? '+' : '') + Math.round(cnt(exc[i]))}</td>
+      <td>${isEx || s || weak || enh[i] === null ? '–' : enh[i].toFixed(2) + '×'}</td><td class="dim" style="text-align:left">${[role, weak ? 'too few counts' : ''].filter(Boolean).join(' · ')}</td></tr>`;
+  }).join('');
+  $('fTable').innerHTML = `<tr><th>Channel</th><th>Now</th><th>Leak</th><th>Excess</th><th>÷ leak</th><th></th></tr>${rows}`;
+  drawTrend();
+}
+
+function drawTrend() {
+  const svg = $('fTrend'), W = 400, H = 86, padL = 34, padR = 6, padT = 8, padB = 8;
+  const pts = FL.trend.map(v => v === null ? null : 1000 * v);
+  const vals = pts.filter(v => v !== null);
+  if (!vals.length) { svg.innerHTML = ''; return; }
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  if (hi - lo < 0.05) { hi += 0.05; }
+  const x = i => padL + (W - padL - padR) * (i / Math.max(1, 149));
+  const y = v => padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo));
+  let d = '', pen = false;
+  pts.forEach((v, i) => { if (v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; pen = true; });
+  svg.innerHTML = `<line class="ax" x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}"/>
+    <line class="zero" x1="${padL}" y1="${y(0)}" x2="${W - padR}" y2="${y(0)}"/>
+    <text x="${padL - 4}" y="${padT + 8}" text-anchor="end">${hi.toFixed(2)}</text>
+    <text x="${padL - 4}" y="${H - padB}" text-anchor="end">${lo.toFixed(2)}</text>
+    <path class="ln" d="${d}"/>`;
+  const last = vals[vals.length - 1];
+  $('fTrendHint').textContent = `Fluorescence index (‰), last ${pts.length} frames · now ${last.toFixed(2)} ‰ · dashed line = leak only.`;
+}
+
+function saveFluoReading() {
+  const ref = FL.refs[flRefKey()], nb = FL.buf.length;
+  if (!ref || nb < 3) { $('fRefMsg').textContent = 'Need a reference and a few stable frames before saving.'; return; }
+  const em = chIdx($('fEm').value);
+  const mean = f => FL.buf.reduce((a, b) => a + b[f], 0) / nb;
+  const mExc = mean('exc'), mEx = mean('netEx');
+  const sd = Math.sqrt(FL.buf.reduce((a, b) => a + (b.exc - mExc) ** 2, 0) / (nb - 1));
+  const se = Math.sqrt((sd / Math.sqrt(nb)) ** 2 + (ref.kse[em] * mEx) ** 2);
+  FL.saved.push({ id: Date.now().toString(36), time: new Date().toISOString(), label: $('fLabel').value.trim() || '–',
+    source: source(), ex: CHANNELS[ref.ex].k, em: CHANNELS[em].k, gain: S.lastGain, n: nb,
+    fi: 1000 * mean('fi'), fiSe: 1000 * se / ref.E0, enh: mean('enh'), z: se > 0 ? mExc / se : null, verdict: $('fVerdict').textContent });
+  flSave(); renderFluoSaved();
+}
+function renderFluoSaved() {
+  if (!FL.saved.length) { $('fSaved').innerHTML = ''; return; }
+  $('fSaved').innerHTML = `<tr><th>Label</th><th>Time</th><th>LED</th><th>Em/Ex</th><th>Index ‰</th><th>÷ leak</th><th>σ</th><th style="text-align:left">Verdict</th><th></th></tr>` +
+    [...FL.saved].reverse().map(r => `<tr><td>${r.label}</td><td>${timeStr(r.time)}</td><td>${r.source}</td><td>${r.em}/${r.ex}</td>
+      <td>${r.fi.toFixed(2)} ± ${r.fiSe.toFixed(2)}</td><td>${r.enh.toFixed(2)}×</td><td>${r.z !== null ? r.z.toFixed(1) : '–'}</td>
+      <td class="flag">${r.verdict}</td><td><button class="small" data-fdel="${r.id}">✕</button></td></tr>`).join('');
+}
+function exportFluo() {
+  if (!FL.saved.length) { $('fRefMsg').textContent = 'No saved readings yet.'; return; }
+  const q = v => { const s = (v === null || v === undefined) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = ['time,label,source,excitation_ch,emission_ch,gain,frames,fluorescence_index_permil,fi_se_permil,measured_over_leak,sigma,verdict',
+    ...FL.saved.map(r => [r.time, r.label, r.source, r.ex, r.em, r.gain, r.n, r.fi.toFixed(4), r.fiSe.toFixed(4), r.enh.toFixed(4), r.z !== null ? r.z.toFixed(2) : '', r.verdict].map(q).join(','))];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+  a.download = 'fluorescence_readings.csv'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ============================================================
    CSV export (reference columns left empty to fill after extractions)
    ============================================================ */
 function exportCSV() {
@@ -822,6 +1088,8 @@ const DEMO = {
   // absorbance per g/L for a 3 mm gap (from the simulation): F1..F8, Clear, NIR
   kA: [0.96, 0.97, 0.88, 0.76, 0.62, 0.66, 0.74, 0.63, 0.72, 0.36],
   dark: [0.6, 0.5, 0.5, 0.5, 0.5, 0.5, 0.6, 0.7, 1.0, 0.8],
+  kInk: [0.62, 0.62, 0.61, 0.61, 0.60, 0.60, 0.59, 0.59, 0.60, 0.57],     // near-flat absorber
+  kMilk: [0.55, 0.50, 0.46, 0.42, 0.39, 0.36, 0.34, 0.31, 0.38, 0.24],   // scattering, falls with wavelength
 };
 function demoCommand(cmd) {               // same parser as the firmware's RxCallbacks
   const c = cmd.trim().toUpperCase(); if (!c.startsWith('G:')) return;
@@ -839,7 +1107,8 @@ function demoTick() {
   const fluo = (src.startsWith('590') && DEMO.led && DEMO.content === 'culture') ? 3200 * 0.0012 * (1 - Math.pow(10, -0.6 * DEMO.dens)) : 0;
   const readings = spec.map((b, i) => {
     let light = DEMO.led ? b : 0;
-    if (DEMO.led && DEMO.content === 'culture') light *= Math.pow(10, -DEMO.kA[i] * DEMO.dens);
+    const kk = { culture: DEMO.kA, ink: DEMO.kInk, milk: DEMO.kMilk }[DEMO.content];
+    if (DEMO.led && kk) light *= Math.pow(10, -kk[i] * DEMO.dens);
     if (i === 7) light += fluo; if (i === 6) light += 0.35 * fluo;
     const mean = (light + DEMO.dark[i]) * g;
     const noisy = mean + (Math.random() * 2 - 1) * Math.sqrt(0.1 * mean + 25) * 1.7;
@@ -895,7 +1164,8 @@ $('viewSeg').addEventListener('click', e => {
   [...$('viewSeg').children].forEach(b => b.classList.toggle('on', b.dataset.v === v));
   renderLive(S.last);
 });
-$('src').onchange = () => { $('srcOtherWrap').hidden = $('src').value !== 'Other'; renderRefs(); renderLive(S.last); };
+$('src').onchange = () => { $('srcOtherWrap').hidden = $('src').value !== 'Other'; renderRefs(); renderLive(S.last);
+  fillFluoSelects(true); flResetAvg(); FL.trend = []; renderFluoRef(); };
 $('srcOther').oninput = () => { renderRefs(); };
 ['sATIME', 'sASTEP'].forEach(id => $(id).oninput = () => $('tintHint').textContent = `Integration time ≈ ${tintMs().toFixed(1)} ms per channel group.`);
 $('tintHint').textContent = `Integration time ≈ ${tintMs().toFixed(1)} ms per channel group.`;
@@ -909,11 +1179,22 @@ $('gSel').onchange = () => requestGain('M', parseInt($('gSel').value, 10));
 $('gDown').onclick = () => requestGain('M', parseInt($('gSel').value, 10) - 1);
 $('gUp').onclick = () => requestGain('M', parseInt($('gSel').value, 10) + 1);
 ['rA', 'rB'].forEach(id => $(id).onchange = ratioChanged);
+$('fEx').onchange = () => { flResetAvg(); FL.trend = []; renderFluoRef(); };
+$('fEm').onchange = () => { flResetAvg(); FL.trend = []; renderFluoRef(); };
+$('fSetRef').onclick = startFluoRef;
+$('fReset').onclick = () => { flResetAvg(); };   // keeps the trend: it is the time course you want to see
+$('fSave').onclick = saveFluoReading;
+$('fExport').onclick = exportFluo;
+$('fSaved').addEventListener('click', e => {
+  const id = e.target.dataset && e.target.dataset.fdel; if (!id) return;
+  FL.saved = FL.saved.filter(r => r.id !== id); flSave(); renderFluoSaved();
+});
 $('rDark').onchange = ratioChanged;
 $('rReset').onclick = ratioChanged;
 $('rSwap').onclick = () => { const a = $('rA').value; $('rA').value = $('rB').value; $('rB').value = a; ratioChanged(); };
 
-load(); buildLiveBars(); renderRefs(); renderLog(); renderResult(); updateButtons(); renderGainUI();
+load(); flLoad(); buildLiveBars(); renderRefs(); renderLog(); renderResult(); updateButtons(); renderGainUI();
+fillFluoSelects(true); renderFluoRef(); renderFluoSaved(); $('fSetRef').disabled = true;
 if (new URLSearchParams(location.search).has('demo')) startDemo();
 </script>
 </body>
