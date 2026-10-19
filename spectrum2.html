@@ -25,7 +25,7 @@
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
 
   button {
-    font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 11px 14px; cursor: pointer;
+    font: inherit; font-weight: 600; border-radius: 10px; padding: 11px 14px; cursor: pointer;
     background: var(--panel2); color: var(--text); border: 1px solid var(--line);
   }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -43,6 +43,20 @@
   .seg button.on { background: var(--bg); color: var(--text); }
   .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .row-between h2 { margin: 0; }
+
+  /* sensor panel */
+  .srow { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+  .srow:first-of-type { border-top: 0; padding-top: 2px; }
+  .srow .lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; padding-top: 8px; }
+  .ctrl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ctrl select { width: auto; min-width: 96px; padding: 7px 8px; }
+  .ctrl input[type=number] { width: 84px; padding: 7px 8px; }
+  .sinfo { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .sinfo b { color: var(--text2); font-weight: 600; }
+  .sinfo .w { color: var(--warn); }
+  .stepper { display: flex; gap: 6px; align-items: center; }
+  .stepper button { width: 38px; padding: 6px 0; font-size: 16px; }
+  .seg button:disabled { opacity: .4; }
 
   .bars { display: flex; gap: 5px; height: 190px; align-items: stretch; }
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
@@ -67,10 +81,12 @@
   .steps button.primary small { color: #dbe9fb; }
   .progress { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-top: 12px; }
   .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
-  .msg { font-size: 12px; color: var(--text2); margin-top: 6px; min-height: 17px; }
+  .msgrow { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 6px; min-height: 24px; }
+  .msg { font-size: 12px; color: var(--text2); }
   .refs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .ref { background: var(--panel2); border-radius: 8px; padding: 7px 9px; font-size: 12px; color: var(--text2); min-width: 0; }
   .ref b { color: var(--text); }
+  .ref .ok { color: var(--good); } .ref .w { color: var(--warn); }
 
   .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -84,14 +100,16 @@
   .tag.BLANK { background: #16304d; color: #9cc6f2; }
   .tag.SAMPLE { background: #173b28; color: #8fdbb0; }
   .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
   details summary { cursor: pointer; color: var(--text2); font-size: 13px; }
-  details[open] summary { margin-bottom: 10px; }
-  .gainrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .stepper { display: flex; gap: 6px; align-items: center; }
-  .stepper select { width: auto; min-width: 96px; padding: 7px 8px; }
-  .stepper button { width: 38px; padding: 6px 0; font-size: 16px; }
-  .seg button:disabled { opacity: .4; }
-  .ratiobox { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  details[open] > summary { margin-bottom: 10px; }
+  .fold > details > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .fold > details > summary::-webkit-details-marker { display: none; }
+  .fold > details > summary h2 { margin: 0; }
+  .fold > details > summary h2::before { content: '▸ '; }
+  .fold > details[open] > summary h2::before { content: '▾ '; }
+  .subfold { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
   .rsel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .rsel select { width: auto; min-width: 110px; padding: 7px 8px; }
   .rsel .div { font-size: 18px; color: var(--text2); }
@@ -115,7 +133,6 @@
   tr.ex td { color: var(--text2); }
   .chk { display: flex; gap: 6px; align-items: center; margin: 0; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text2); }
   .chk input { width: auto; }
-  @media (max-width: 520px) { .rvals { grid-template-columns: 1fr 1fr; } .rvals .rv:first-child { grid-column: 1 / -1; } }
   .demo { border-color: #5a4a12; }
   .demo h2 { color: var(--warn); }
   .demo .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -123,10 +140,12 @@
   @media (max-width: 520px) {
     body { padding: 12px; }
     .chips { grid-template-columns: repeat(2, 1fr); }
-    .grid2 { grid-template-columns: 1fr; }
-    .refs { grid-template-columns: 1fr; }
+    .grid2, .refs { grid-template-columns: 1fr; }
+    .srow { grid-template-columns: 1fr; gap: 4px; }
+    .srow .lbl { padding-top: 0; }
     .bars { height: 160px; gap: 3px; }
     .col .val { font-size: 9px; }
+    .rvals { grid-template-columns: 1fr 1fr; } .rvals .rv:first-child { grid-column: 1 / -1; }
   }
 </style>
 </head>
@@ -135,146 +154,131 @@
 <header>
   <div>
     <h1>Spirulina Photometer</h1>
-    <div class="sub">AS7341 clamp · dark / blank / sample absorbance test</div>
+    <div class="sub">AS7341 clamp · dark / blank / sample</div>
   </div>
   <button id="conBtn" class="primary">Connect</button>
 </header>
 
 <div class="chips">
-  <div class="chip"><div class="k">Link</div><div class="v" id="c-link">Offline</div></div>
+  <div class="chip"><div class="k">Link</div><div class="v bad" id="c-link">Offline</div></div>
   <div class="chip"><div class="k">Gain</div><div class="v" id="c-gain">--</div></div>
+  <div class="chip"><div class="k">Integration</div><div class="v" id="c-tint">--</div></div>
   <div class="chip"><div class="k">Signal</div><div class="v" id="c-state">--</div></div>
-  <div class="chip"><div class="k">Frames</div><div class="v" id="c-frames">0</div></div>
 </div>
 
-<section id="gainSec">
+<!-- ================= Sensor settings ================= -->
+<section id="sensorSec">
   <div class="row-between">
-    <h2>Sensor gain</h2>
-    <span class="hint" style="margin:0" id="gainStatus">Connect to control the gain.</span>
+    <h2>Sensor</h2>
+    <span class="hint" style="margin:0" id="sensorStatus">Connect to change sensor settings.</span>
   </div>
-  <div class="gainrow">
-    <div class="seg" id="modeSeg">
-      <button data-m="A" class="on" disabled>Auto</button>
-      <button data-m="M" disabled>Manual</button>
-    </div>
-    <div class="stepper">
-      <button id="gDown" disabled aria-label="Lower gain">−</button>
-      <select id="gSel" disabled aria-label="Manual gain"></select>
-      <button id="gUp" disabled aria-label="Higher gain">+</button>
+
+  <div class="srow">
+    <div class="lbl">Gain</div>
+    <div>
+      <div class="ctrl">
+        <div class="seg" id="modeSeg">
+          <button data-m="A" class="on" disabled>Auto</button>
+          <button data-m="M" disabled>Manual</button>
+        </div>
+        <div class="stepper">
+          <button id="gDown" disabled aria-label="Lower gain">−</button>
+          <select id="gSel" disabled aria-label="Manual gain"></select>
+          <button id="gUp" disabled aria-label="Higher gain">+</button>
+        </div>
+      </div>
+      <div class="sinfo">Manual keeps the gain fixed: saturated channels are dropped, the rest are kept.</div>
     </div>
   </div>
-  <div class="hint" id="gainHint">Manual gain keeps the gain fixed even when channels saturate: saturated channels are dropped from absorbance, the rest are kept.</div>
+
+  <div class="srow">
+    <div class="lbl">Integration</div>
+    <div>
+      <div class="ctrl">
+        <select id="tSel" disabled aria-label="Integration time per pass"></select>
+        <span class="ctrl" id="tCustom" hidden>
+          <label class="inl chk">ATIME <input id="tAt" type="number" min="0" max="255" step="1" disabled></label>
+          <label class="inl chk">ASTEP <input id="tAs" type="number" min="0" max="65534" step="1" disabled></label>
+          <button class="small" id="tApply" disabled>Apply</button>
+        </span>
+      </div>
+      <div class="sinfo" id="tInfo">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="srow">
+    <div class="lbl">LED driver</div>
+    <div>
+      <div class="ctrl">
+        <div class="seg" id="ledSeg">
+          <button data-l="off" class="on" disabled>Off</button>
+          <button data-l="on" disabled>On</button>
+        </div>
+        <label class="inl chk"><input id="ledMa" type="number" min="4" max="258" step="2" value="20" disabled> mA</label>
+        <label class="chk"><input type="checkbox" id="ledAuto"> off for Dark, on for Blank / Sample</label>
+      </div>
+      <div class="sinfo">The AS7341's own LED driver (LDR pin: the breakout's onboard LED, or your LED if it is wired there).
+        4–258 mA; stay within your LED's rating. Switched off when the app disconnects.</div>
+    </div>
+  </div>
+
+  <div class="hint">Counts scale with <b>gain × integration time</b>. Half the gain with twice the integration gives the same counts
+    but collects twice the light per frame: less shot noise, bubbles and LED flicker averaged out, slower frames.
+    Use the <i>Noise</i> view with the same sample in the clamp to compare settings.</div>
 </section>
 
 <section id="demoPanel" class="demo" hidden>
-  <h2>Demo mode: emulated firmware</h2>
+  <h2>Demo mode: emulated firmware v4</h2>
   <div class="row">
-    <button class="small" id="dLed">LED: ON</button>
     <select id="dContent" style="width:auto">
       <option value="medium">Clamp: medium only</option>
       <option value="culture" selected>Clamp: culture</option>
       <option value="ink">Clamp: ink (non-fluorescent)</option>
       <option value="milk">Clamp: milk (scatter)</option>
     </select>
-    <span class="hint" style="margin:0">Demo LED follows the “Light source” field (White, 850 nm, 590 nm amber).</span>
     <span class="hint" style="margin:0">Density</span>
     <input type="range" id="dDens" min="0.02" max="3" step="0.01" value="0.8">
     <span id="dDensV" class="hint" style="margin:0">0.80 g/L</span>
-    <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0">
-      <input type="checkbox" id="d10" style="width:auto" checked> send Clear + NIR
-    </label>
   </div>
+  <div class="hint">The light follows the LED driver control and the “Light source” spectrum (White, 850 nm, 590 nm amber).</div>
 </section>
 
+<!-- ================= Live ================= -->
 <section>
   <div class="row-between">
     <h2>Live spectrum</h2>
     <div class="seg" id="viewSeg">
       <button data-v="counts" class="on">Counts / ms</button>
       <button data-v="raw">Raw</button>
+      <button data-v="noise">Noise</button>
       <button data-v="abs">Absorbance</button>
     </div>
   </div>
   <div class="bars" id="liveBars"></div>
   <div class="hint" id="liveHint">Connect the sensor to see live readings.</div>
-  <div class="ratiobox">
+
+  <details class="subfold" id="ratioDet">
+    <summary>Channel ratio</summary>
     <div class="row-between" style="margin-bottom:8px">
-      <h2 style="margin:0">Live ratio</h2>
+      <div class="rsel">
+        <select id="rA" aria-label="Numerator channel"></select>
+        <span class="div">÷</span>
+        <select id="rB" aria-label="Denominator channel"></select>
+        <button class="small" id="rSwap" title="Swap channels">⇄</button>
+        <button class="small" id="rReset" title="Restart the running average">Reset avg</button>
+      </div>
       <label class="chk"><input type="checkbox" id="rDark" checked> subtract dark</label>
-    </div>
-    <div class="rsel">
-      <select id="rA" aria-label="Numerator channel"></select>
-      <span class="div">÷</span>
-      <select id="rB" aria-label="Denominator channel"></select>
-      <button class="small" id="rSwap" title="Swap channels">⇄</button>
-      <button class="small" id="rReset" title="Restart the running average">Reset avg</button>
     </div>
     <div class="rvals">
       <div class="rv"><div class="k">Ratio · now</div><div class="big" id="rNow">–</div><div class="sm" id="rNowSub">&nbsp;</div></div>
       <div class="rv"><div class="k" id="rAName">A</div><div class="big" id="rAVal">–</div><div class="sm" id="rASub">&nbsp;</div></div>
       <div class="rv"><div class="k" id="rBName">B</div><div class="big" id="rBVal">–</div><div class="sm" id="rBSub">&nbsp;</div></div>
     </div>
-    <div class="hint" id="rHint">Same frame, same gain: the ratio of the two channels as it arrives. The average resets when you change gain or channels.</div>
-  </div>
-</section>
-
-<section id="fluoSec">
-  <div class="row-between">
-    <h2>Fluorescence check</h2>
-    <span class="fverdict" id="fVerdict">No reference</span>
-  </div>
-  <div class="rsel">
-    <label class="inl" for="fEx">Excitation <select id="fEx"></select></label>
-    <label class="inl" for="fEm">Emission <select id="fEm"></select></label>
-  </div>
-  <div class="actions" style="margin-top:8px">
-    <button class="small primary" id="fSetRef">Set leak reference (medium)</button>
-    <button class="small" id="fReset">Reset avg</button>
-  </div>
-  <div class="progress"><div id="fProg"></div></div>
-  <div class="msg" id="fRefMsg"></div>
-  <div class="rvals">
-    <div class="rv"><div class="k">Excess over leak</div><div class="big" id="fExcess">–</div><div class="sm" id="fExcessSub">&nbsp;</div></div>
-    <div class="rv"><div class="k">Measured ÷ leak</div><div class="big" id="fEnh">–</div><div class="sm" id="fEnhSub">&nbsp;</div></div>
-    <div class="rv"><div class="k">Fluorescence index</div><div class="big" id="fFI">–</div><div class="sm" id="fFISub">&nbsp;</div></div>
-  </div>
-  <svg id="fTrend" viewBox="0 0 400 86" preserveAspectRatio="none" role="img" aria-label="Fluorescence index over time"></svg>
-  <div class="hint" id="fTrendHint">Fluorescence index, last ~2 minutes.</div>
-  <div class="tablewrap" style="margin-top:10px"><table id="fTable"></table></div>
-  <div class="actions">
-    <input id="fLabel" placeholder="Label, e.g. medium / ink / culture 0.5 g/L" style="flex:1;min-width:160px">
-    <button class="small" id="fSave">Save reading</button>
-    <button class="small" id="fExport">Export readings</button>
-  </div>
-  <div class="tablewrap" style="margin-top:8px"><table id="fSaved"></table></div>
-  <details style="margin-top:12px">
-    <summary>How to tell it's really fluorescence</summary>
-    <div class="hint" style="margin-top:0">
-      <b>Idea.</b> With medium only, everything the red channels see is LED leak, and it is a fixed fraction of the
-      excitation channel (e.g. F8 = k × F6). The reference learns k. With cells, the app predicts the leak from the
-      excitation actually reaching the sensor (k × F6 now) and shows what is left over: that excess is the candidate
-      fluorescence. The fluorescence index is that excess divided by the excitation measured in medium, so it does not
-      depend on gain.<br><br>
-      <b>Procedure.</b> 1) Manual gain at the highest level where the excitation channel stays below 60 000 with medium.
-      2) LED off: capture a Dark at that gain. 3) Medium, LED on: <i>Set leak reference</i>. 4) Put the culture in,
-      same LED: read Excess and the verdict (detected = more than 5σ and at least 10% above the leak).<br><br>
-      <b>Controls that prove it.</b>
-      a) <i>Non-fluorescent absorber</i>: a few drops of India ink or black food dye in medium, diluted until the
-      excitation channel drops about as much as with your culture. Measured ÷ leak should stay near 1.0; whatever it
-      shows is your false-positive floor, and the culture must clearly exceed it.
-      b) <i>Scatterer</i>: diluted milk, same expectation (≈1.0).
-      c) <i>No excitation</i>: with the 850 nm LED nothing is absorbed by the pigments, so there is no excess.
-      d) <i>Living signal</i>: dark-adapt the culture 5–10 min, switch the LED on and watch the trend. Chlorophyll
-      fluorescence changes over the first tens of seconds (induction); leak and absorption do not.
-      e) <i>Dose</i>: a dilution series should give an excess that rises with cells and flattens at high density.
-      f) <i>Colour</i>: the excess should sit in F8 (680) more than F7 (630), and should not appear at wavelengths
-      shorter than the LED. Channels below the LED can still move with absorption, which is why a) matters.<br><br>
-      In this transmission geometry part of the fluorescence is re-absorbed on its way to the sensor, so a front-face
-      sensor would see more; a recovered excess here already shows the sensor can see it.
-    </div>
+    <div class="hint" id="rHint">Same frame, same settings: the ratio of two channels as it arrives.</div>
   </details>
 </section>
 
+<!-- ================= Capture ================= -->
 <section>
   <h2>Capture</h2>
   <div class="grid2">
@@ -317,11 +321,13 @@
     <button id="bSample" class="primary">3 · Sample<small>culture, LED on</small></button>
   </div>
   <div class="progress"><div id="prog"></div></div>
-  <div class="msg" id="capMsg"></div>
+  <div class="msgrow"><span class="msg" id="capMsg"></span><button class="small" id="bCancel" hidden>Cancel</button></div>
   <div class="refs">
     <div class="ref" id="refDark">Dark: <b>none</b></div>
-    <div class="ref" id="refBlank">Blank (White): <b>none</b></div>
+    <div class="ref" id="refBlank">Blank: <b>none</b></div>
   </div>
+  <div class="hint">Darks and blanks are matched to the sensor settings: a sample uses the dark and blank taken at the same gain
+    and integration time when they exist, otherwise the closest ones (and says so in its flags).</div>
 </section>
 
 <section id="resultSec" hidden>
@@ -347,28 +353,74 @@
   </div>
 </section>
 
-<section>
+<!-- ================= Fluorescence (folded) ================= -->
+<section class="fold">
+  <details id="fluoDet">
+    <summary><h2>Fluorescence check</h2><span class="fverdict" id="fVerdict">No reference</span></summary>
+    <div class="rsel">
+      <label class="inl chk" for="fEx">Excitation <select id="fEx"></select></label>
+      <label class="inl chk" for="fEm">Emission <select id="fEm"></select></label>
+    </div>
+    <div class="actions" style="margin-top:8px">
+      <button class="small primary" id="fSetRef">Set leak reference (medium)</button>
+      <button class="small" id="fReset">Reset avg</button>
+    </div>
+    <div class="progress"><div id="fProg"></div></div>
+    <div class="msg" id="fRefMsg" style="margin-top:6px"></div>
+    <div class="rvals">
+      <div class="rv"><div class="k">Excess over leak</div><div class="big" id="fExcess">–</div><div class="sm" id="fExcessSub">&nbsp;</div></div>
+      <div class="rv"><div class="k">Measured ÷ leak</div><div class="big" id="fEnh">–</div><div class="sm" id="fEnhSub">&nbsp;</div></div>
+      <div class="rv"><div class="k">Fluorescence index</div><div class="big" id="fFI">–</div><div class="sm" id="fFISub">&nbsp;</div></div>
+    </div>
+    <svg id="fTrend" viewBox="0 0 400 86" preserveAspectRatio="none" role="img" aria-label="Fluorescence index over time"></svg>
+    <div class="hint" id="fTrendHint">Fluorescence index, last ~150 frames.</div>
+    <div class="tablewrap" style="margin-top:10px"><table id="fTable"></table></div>
+    <div class="actions">
+      <input id="fLabel" placeholder="Label, e.g. medium / ink / culture 0.5 g/L" style="flex:1;min-width:160px">
+      <button class="small" id="fSave">Save reading</button>
+      <button class="small" id="fExport">Export readings</button>
+    </div>
+    <div class="tablewrap" style="margin-top:8px"><table id="fSaved"></table></div>
+    <details style="margin-top:12px">
+      <summary>How it works and which controls prove it</summary>
+      <div class="hint" style="margin-top:0">
+        With medium only, the red channels see LED leak, a fixed fraction k of the excitation channel. The reference
+        learns k; with cells the app predicts the leak as k × excitation now and shows what is left: the candidate
+        fluorescence. Index = excess ÷ excitation in medium (independent of gain and integration).<br><br>
+        <b>Procedure:</b> manual gain and integration with the excitation channel below ~90% of full scale in medium →
+        Dark at those settings → medium, <i>Set leak reference</i> → culture: read the verdict
+        (detected = &gt;5σ and ≥10% above leak).<br>
+        <b>Controls:</b> ink or black dye matched in absorbance and diluted milk (scatter) should stay near 1.00× leak;
+        850 nm excitation should give no excess; dark-adapted culture should show induction over the first tens of seconds;
+        a dilution series should rise and flatten.
+      </div>
+    </details>
+  </details>
+</section>
+
+<section class="fold">
   <details>
-    <summary>Settings</summary>
+    <summary><h2>Settings</h2></summary>
     <div class="grid2">
-      <div class="field"><label for="sATIME">ATIME (firmware)</label><input id="sATIME" type="number" value="100"></div>
-      <div class="field"><label for="sASTEP">ASTEP (firmware)</label><input id="sASTEP" type="number" value="999"></div>
       <div class="field"><label for="sLow">Min. blank counts for a valid channel</label><input id="sLow" type="number" value="1000"></div>
       <div class="field"><label for="sCV">Warn if frame-to-frame CV above (%)</label><input id="sCV" type="number" step="0.1" value="2"></div>
     </div>
-    <div class="hint" id="tintHint"></div>
   </details>
 </section>
 
 <script>
 /* ============================================================
-   Constants that must match the ESP32 firmware
+   Constants that must match spectrum_pro.ino (v4; v3 still works, gain only)
    ============================================================ */
 const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const CHAR_UUID    = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";   // TX: sensor -> app (notify)
-const RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";   // RX: app -> sensor (gain commands, firmware v3)
+const TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";   // sensor -> app (notify)
+const RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";   // app -> sensor (commands)
 const GAINS = [0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512];   // gainList[] index -> multiplier
-const SAT_LEVEL = 60000;
+const STEP_MS = 0.00278;                                       // one ASTEP unit
+const SAT_FRAC = 0.915;                                        // saturation flag, fraction of full scale (60000/65535)
+const TINT_PRESETS = [10, 25, 50, 100, 200, 281, 500, 1000, 2000, 4000];
+const TINT_MAX_MS = 10000;
+const NCH = 10;
 const CHANNELS = [
   { k: 'F1', wl: '415', col: '#7600ed' }, { k: 'F2', wl: '445', col: '#2f5bff' },
   { k: 'F3', wl: '480', col: '#00c2e8' }, { k: 'F4', wl: '515', col: '#19c93a' },
@@ -377,48 +429,74 @@ const CHANNELS = [
   { k: 'Clear', wl: 'CLR', col: '#b9b9b4' }, { k: 'NIR', wl: '910', col: '#8e3b3b' },
 ];
 const STORE_KEY = 'spirulinaPhotometer.v1';
+const PREF_KEY = STORE_KEY + '.prefs';
 
 /* ============================================================
    State
    ============================================================ */
 const S = {
-  connected: false, device: null,
-  rx: '', frames: 0, dropped: 0, truncated: 0,
-  lastLabel: null, sinceChange: 0,
-  last: null,               // last usable frame {vals, gain, label, sat, t}
-  nCh: 8,
-  view: 'counts',
-  capture: null,
-  darks: {},                // gain -> record
-  blanks: {},               // source -> record
-  log: [],
-  lastSample: null,
-  rxChar: null,             // RX characteristic (null if firmware has no command channel)
-  fwMode: null,             // 'A' | 'M' as reported by the firmware, null if not reported
-  gainReq: null,            // {mode, idx, t} last command sent, until confirmed
+  connected: false, device: null, demo: false, rxChar: null, fw: null,
+  frames: 0, bad: 0,
+  last: null, sig: '', period: null, periodKey: '', lastT: 0,
+  view: 'counts', noise: [],
+  capture: null, log: [], lastSample: null,
+  pend: { gain: null, tint: null, led: null }, sensorMsg: '',
+  tCustom: false, tDirty: false,
   writeChain: Promise.resolve(),
 };
 
 const $ = id => document.getElementById(id);
-const tintMs = () => (num($('sATIME').value, 100) + 1) * (num($('sASTEP').value, 999) + 1) * 0.00278;
 function num(v, d) { const x = parseFloat(v); return isFinite(x) ? x : d; }
 function fmt(x, d = 3) { return (x === null || x === undefined || !isFinite(x)) ? '–' : x.toFixed(d); }
 function fmtGain(g) { return g === 0.5 ? '0.5x' : g + 'x'; }
+function fmtMs(ms) {
+  if (ms === null || ms === undefined || !isFinite(ms)) return '–';
+  if (ms >= 1000) return (ms / 1000).toFixed(2) + ' s';
+  return ms >= 100 ? ms.toFixed(0) + ' ms' : ms.toFixed(1) + ' ms';
+}
 function timeStr(t) { return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function source() { return $('src').value === 'Other' ? ($('srcOther').value.trim() || 'Other') : $('src').value; }
+const chIdx = k => CHANNELS.findIndex(c => c.k === k);
+const tintOf = (at, as) => (at + 1) * (as + 1) * STEP_MS;
+const fsOf = (at, as) => Math.min(65535, (at + 1) * (as + 1));
+const cfgKey = c => `${c.gain}|${c.atime}|${c.astep}`;
+const cfgLabel = c => `${fmtGain(c.gain)} · ${fmtMs(c.tint || tintOf(c.atime, c.astep))}`;
+const estPeriod = t => 2 * t + 140;           // two SMUX passes + firmware gap/overhead
+
+// ATIME/ASTEP for a target integration time, keeping ATIME large (finer steps, full 16-bit range when possible)
+function stepsFor(ms) {
+  const n = Math.max(2, Math.round(ms / STEP_MS));
+  const astep = Math.min(65534, Math.max(0, Math.ceil(n / 256) - 1));
+  const atime = Math.min(255, Math.max(0, Math.round(n / (astep + 1)) - 1));
+  return { atime, astep };
+}
 
 /* ============================================================
    Persistence (per-browser convenience; export CSV for anything important)
    ============================================================ */
-function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify({ darks: S.darks, blanks: S.blanks, log: S.log })); } catch (e) {}
-}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify({ log: S.log })); } catch (e) {} }
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (d) { S.darks = d.darks || {}; S.blanks = d.blanks || {}; S.log = d.log || []; }
+    if (d && Array.isArray(d.log)) S.log = d.log;
   } catch (e) {}
+  // records from the previous version: fixed 100/999 integration
+  S.log.forEach(r => {
+    if (r.atime === undefined) { r.atime = 100; r.astep = 999; }
+    if (!r.tint) r.tint = tintOf(r.atime, r.astep);
+    if (!r.fs) r.fs = fsOf(r.atime, r.astep);
+    if (r.led === undefined) r.led = null;
+    r.nCh = r.nCh || r.raw.length; r.flags = r.flags || [];
+  });
   S.lastSample = [...S.log].reverse().find(r => r.type === 'SAMPLE') || null;
+}
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function savePrefs() {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify({
+      ledMa: $('ledMa').value, ledAuto: $('ledAuto').checked, ratio: { a: $('rA').value, b: $('rB').value },
+    }));
+  } catch (e) {}
 }
 
 /* ============================================================
@@ -431,115 +509,228 @@ async function connect() {
     device.addEventListener('gattserverdisconnected', onDisconnect);
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(SERVICE_UUID);
-    const ch = await service.getCharacteristic(CHAR_UUID);
+    const ch = await service.getCharacteristic(TX_UUID);
     await ch.startNotifications();
     ch.addEventListener('characteristicvaluechanged', ev => onNotify(ev.target.value));
     try { S.rxChar = await service.getCharacteristic(RX_UUID); } catch (e) { S.rxChar = null; }
     S.device = device; setLink(true);
   } catch (err) { alert('Connection error: ' + err); }
 }
-function onDisconnect() { S.rxChar = null; S.fwMode = null; S.gainReq = null; S.lastGain = null; setLink(false); abortCapture('Sensor disconnected.'); renderGainUI(); }
+function onDisconnect() {
+  S.rxChar = null; S.fw = null; S.last = null; S.sig = ''; S.lastT = 0; S.period = null;
+  S.pend = { gain: null, tint: null, led: null };
+  setLink(false); abortCapture('Sensor disconnected.');
+}
 function setLink(on) {
   S.connected = on;
   $('c-link').textContent = on ? 'Live' : 'Offline';
   $('c-link').className = 'v ' + (on ? 'good' : 'bad');
   $('conBtn').textContent = on ? 'Connected' : 'Connect';
   $('conBtn').disabled = on;
-  updateButtons(); renderGainUI();
+  updateButtons(); renderSensorUI();
   $('fSetRef').disabled = !on || !!FL.collect;
   if (!on && FL.collect) { FL.collect = null; $('fRefMsg').textContent = 'Reference stopped: sensor disconnected.'; }
 }
 
 /* ============================================================
-   Parsing. The firmware sends one line per notification, without '\n':
-   "F1,...,F8,GAIN", "F1,...,F8,CLEAR,NIR,GAIN" (v2) or "F1,...,F8,CLEAR,NIR,GAIN,MODE" (v3, MODE = A|M).
+   Parsing. One frame per notification:
+   v4: F1..F8,CLEAR,NIR,GAIN,MODE,ATIME,ASTEP,LED     v3: F1..F8,CLEAR,NIR,GAIN,MODE
    ============================================================ */
 const decoder = new TextDecoder('utf-8');
-const LABEL_RE = /^(\d+(\.\d+)?x|\d+)$/;
+const GAIN_RE = /^\d+(\.\d+)?x$/, INT_RE = /^\d+$/;
+
+function parseFrame(line) {
+  const f = line.split(',').map(s => s.trim());
+  let fw;
+  if (f.length === 15 && f.slice(12).every(x => INT_RE.test(x))) fw = 4;
+  else if (f.length === 12) fw = 3;
+  else return null;
+  if (!GAIN_RE.test(f[10]) || !/^[AM]$/.test(f[11])) return null;
+  const vals = f.slice(0, 10).map(Number);
+  if (vals.some(v => !isFinite(v))) return null;
+  const gain = parseFloat(f[10]);
+  if (!GAINS.includes(gain)) return null;
+  const atime = fw === 4 ? +f[12] : 100, astep = fw === 4 ? +f[13] : 999;
+  const led = fw === 4 ? +f[14] : null;
+  const tint = tintOf(atime, astep), fs = fsOf(atime, astep), satLevel = Math.floor(SAT_FRAC * fs);
+  const chSat = vals.map(v => v >= satLevel);
+  return { fw, vals, gain, mode: f[11], atime, astep, led, tint, fs, satLevel, chSat, anySat: chSat.some(Boolean), t: Date.now() };
+}
 
 function onNotify(dataView) {
-  S.rx += decoder.decode(dataView);
-  if (S.rx.includes('\n')) {                        // tolerate a firmware that adds newlines
-    const lines = S.rx.split('\n'); S.rx = lines.pop();
-    lines.forEach(l => l.trim() && tryFrame(l.trim()));
+  const fr = parseFrame(decoder.decode(dataView).trim());
+  if (!fr) {
+    S.bad++;
+    if (S.bad > 3 && !S.frames) $('liveHint').textContent = 'Frames not recognised: flash spectrum_pro v4 (or the BLE MTU is too small for the payload).';
     return;
   }
-  const f = S.rx.split(',').map(s => s.trim()), k = f.length, last = f[k - 1];
-  const withMode = /^[AM]$/.test(last) && (k === 10 || k === 12) && LABEL_RE.test(f[k - 2]);
-  const legacy = (k === 9 || k === 11) && LABEL_RE.test(last);
-  if (withMode || legacy) { tryFrame(S.rx.trim()); S.rx = ''; }
-  else if (k > 12 || S.rx.length > 160) { S.rx = ''; S.truncated++; if (S.truncated > 3) note('Frames arrive incomplete: the BLE MTU may be too small for the payload.'); }
+  onFrame(fr);
 }
 
-function parseGain(label) {
-  if (label.endsWith('x')) return parseFloat(label);
-  const idx = parseInt(label, 10);                  // firmware prints the gain INDEX for 2x, 8x, 32x, 128x
-  return GAINS[idx] ?? null;
-}
-
-function tryFrame(line) {
-  const f = line.split(',').map(s => s.trim());
-  const mode = /^[AM]$/.test(f[f.length - 1]) ? f.pop() : null;
-  const label = f.pop();
-  const vals = f.map(Number);
-  if (!(vals.length === 8 || vals.length === 10) || vals.some(v => !isFinite(v))) return;
-  const gain = parseGain(label);
-  if (!gain) return;
-  S.frames++;
-  $('c-frames').textContent = S.frames;
-  $('c-gain').textContent = fmtGain(gain) + (mode === 'M' ? ' · M' : '');
-  onGainReport(mode, gain);
-  if (vals.length !== S.nCh) { S.nCh = vals.length; buildLiveBars(); }
-
-  // The firmware changes gain BEFORE sending, so on the frame where the label changes the counts
-  // were measured at the previous gain. Drop that frame.
-  if (label !== S.lastLabel) {
-    S.lastLabel = label; S.sinceChange = 0; S.dropped++;
-    setState('Settling', 'warn');
-    if (S.capture && S.capture.frames.length) restartCapture('gain changed');
-    return;
-  }
-  S.sinceChange++;
-  // Firmware auto-gain reacts to F1-F8 (and, with the patch, to Clear/NIR): a saturated channel there means
-  // the gain is about to change, so the frame is unusable. Channel-level saturation is tracked separately.
-  const chSat = vals.map(v => v > SAT_LEVEL);
-  const sat = chSat.slice(0, 8).some(Boolean);
-  const frame = { vals, gain, label, mode, sat, chSat, t: Date.now() };
-  S.last = frame;
-  const satList = CHANNELS.filter((c, i) => chSat[i]).map(c => c.k).join(' ');
-  if (sat && mode === 'M') setState('Manual · ' + satList + ' sat.', 'warn');
-  else if (sat) setState(gain === 0.5 ? 'Too bright' : 'Saturated', 'bad');
-  else if (S.sinceChange < 2) setState('Settling', 'warn');
-  else if (chSat.some(Boolean)) setState('Stable · ' + CHANNELS.filter((c, i) => chSat[i]).map(c => c.k).join(' ') + ' sat.', 'warn');
-  else setState('Stable', 'good');
-  renderLive(frame);
-  updateRatio(frame);
-  updateFluo(frame);
-  feedCapture(frame);
+function onFrame(fr) {
+  S.frames++; S.fw = fr.fw;
+  const pk = `${fr.atime}|${fr.astep}`;
+  if (pk !== S.periodKey) { S.periodKey = pk; S.period = null; S.lastT = 0; }
+  if (S.lastT) { const dt = fr.t - S.lastT; S.period = S.period ? 0.7 * S.period + 0.3 * dt : dt; }
+  S.lastT = fr.t;
+  fr.key = cfgKey(fr);
+  const sig = fr.key + '|' + fr.led;
+  fr.fresh = sig !== S.sig;
+  if (fr.fresh) { S.sig = sig; S.noise = []; }
+  S.last = fr;
+  S.noise.push(fr.vals); if (S.noise.length > 10) S.noise.shift();
+  confirmPending(fr);
+  renderChips(fr); renderSensorUI(); updateButtons();
+  if (fr.fresh) renderRefs();
+  renderLive(fr);
+  updateRatio(fr);
+  updateFluo(fr);
+  feedCapture(fr);
 }
 
 function setState(txt, cls) { $('c-state').textContent = txt; $('c-state').className = 'v ' + cls; }
+function renderChips(fr) {
+  $('c-gain').textContent = fmtGain(fr.gain) + (fr.mode === 'M' ? ' · M' : ' · A');
+  $('c-tint').textContent = fmtMs(fr.tint);
+  const peak = Math.max(...fr.vals) / fr.fs;
+  if (fr.anySat) setState(fr.mode === 'A' && fr.gain === 0.5 ? 'Too bright'
+    : 'Sat: ' + CHANNELS.filter((_, i) => fr.chSat[i]).map(c => c.k).join(' '), 'bad');
+  else if (fr.fresh) setState('New settings', 'warn');
+  else setState(`Peak ${Math.round(100 * peak)}%`, peak < 0.05 ? 'warn' : 'good');
+}
+
+/* ============================================================
+   Sensor commands (G: gain, T: integration, L: LED driver)
+   ============================================================ */
+const canCmd = minFw => S.connected && (S.demo || !!S.rxChar) && S.fw !== null && S.fw >= minFw;
+
+function sendCmd(cmd) {
+  if (S.demo) { demoCommand(cmd); return Promise.resolve(); }
+  if (!S.rxChar) return Promise.reject(new Error('no command channel'));
+  const data = new TextEncoder().encode(cmd);
+  S.writeChain = S.writeChain.catch(() => {}).then(() =>                 // GATT writes must not overlap
+    S.rxChar.writeValueWithResponse ? S.rxChar.writeValueWithResponse(data) : S.rxChar.writeValue(data));
+  return S.writeChain;
+}
+function send(cmd) {
+  S.sensorMsg = '';
+  renderSensorUI();
+  sendCmd(cmd).catch(err => {
+    S.pend = { gain: null, tint: null, led: null };
+    S.sensorMsg = 'Command failed: ' + err.message; renderSensorUI();
+  });
+}
+function requestGain(mode, idx) {
+  if (!canCmd(3)) return;
+  if (mode === 'M') idx = Math.max(0, Math.min(GAINS.length - 1, idx));
+  S.pend.gain = { mode, idx: mode === 'M' ? idx : null, t: Date.now() };
+  send(mode === 'A' ? 'G:AUTO' : 'G:' + idx);
+}
+function requestTint(atime, astep) {
+  if (!canCmd(4)) return;
+  S.pend.tint = { atime, astep, t: Date.now() };
+  send(`T:${atime},${astep}`);
+}
+function requestLed(mA) {
+  if (!canCmd(4)) return;
+  S.pend.led = { mA, t: Date.now() };
+  send('L:' + mA);
+}
+function evenMa() { let v = Math.round(num($('ledMa').value, 20)); v = Math.max(4, Math.min(258, v)); return v - (v - 4) % 2; }
+
+function confirmPending(fr) {
+  const P = S.pend, now = Date.now(), tmo = Math.max(6000, 3 * (S.period || estPeriod(fr.tint)));
+  if (P.gain && fr.mode === P.gain.mode && (P.gain.mode === 'A' || GAINS.indexOf(fr.gain) === P.gain.idx)) P.gain = null;
+  if (P.tint && fr.atime === P.tint.atime && fr.astep === P.tint.astep) P.tint = null;
+  if (P.led && fr.led === P.led.mA) P.led = null;
+  ['gain', 'tint', 'led'].forEach(k => { if (P[k] && now - P[k].t > tmo) { P[k] = null; S.sensorMsg = 'No confirmation from the sensor.'; } });
+}
+
+function renderSensorUI() {
+  const fr = S.last, P = S.pend, gOk = canCmd(3), tOk = canCmd(4);
+  // gain
+  const mode = P.gain ? P.gain.mode : (fr ? fr.mode : 'A');
+  [...$('modeSeg').children].forEach(b => { b.classList.toggle('on', b.dataset.m === mode); b.disabled = !gOk; });
+  const gsel = $('gSel');
+  if (document.activeElement !== gsel) gsel.value = String(P.gain && P.gain.mode === 'M' ? P.gain.idx : fr ? GAINS.indexOf(fr.gain) : 9);
+  gsel.disabled = $('gDown').disabled = $('gUp').disabled = !gOk;
+
+  // integration
+  const at = P.tint ? P.tint.atime : fr ? fr.atime : 100, as = P.tint ? P.tint.astep : fr ? fr.astep : 999;
+  const t = tintOf(at, as), fs = fsOf(at, as);
+  const tsel = $('tSel');
+  if (document.activeElement !== tsel) {
+    const pre = TINT_PRESETS.find(p => Math.abs(p - t) / p < 0.02);
+    tsel.value = S.tCustom || pre === undefined ? 'custom' : String(pre);
+  }
+  $('tCustom').hidden = tsel.value !== 'custom';
+  if (!S.tDirty) {
+    if (document.activeElement !== $('tAt')) $('tAt').value = at;
+    if (document.activeElement !== $('tAs')) $('tAs').value = as;
+  }
+  tsel.disabled = $('tAt').disabled = $('tAs').disabled = $('tApply').disabled = !tOk;
+  let info;
+  if (S.tDirty) {
+    const a = Math.round(num($('tAt').value, 0)), s = Math.round(num($('tAs').value, 0));
+    info = `Not applied: <b>${fmtMs(tintOf(a, s))}</b> per pass · full scale ${fsOf(a, s).toLocaleString()} counts`;
+  } else {
+    const per = !P.tint && S.period ? S.period : estPeriod(t);
+    info = `<b>${fmtMs(t)}</b> per pass (ATIME ${at}, ASTEP ${as}) · full scale <b>${fs.toLocaleString()}</b> counts · a frame every ~${fmtMs(per)}`;
+    if (fs < 10000) info += ' · <span class="w">coarse: short integrations have a small full scale</span>';
+  }
+  $('tInfo').innerHTML = info;
+
+  // LED driver
+  const led = P.led ? P.led.mA : fr ? fr.led : null;
+  [...$('ledSeg').children].forEach(b => { b.classList.toggle('on', (b.dataset.l === 'on') === (led > 0)); b.disabled = !tOk; });
+  $('ledMa').disabled = !tOk;
+  if (led > 0 && document.activeElement !== $('ledMa')) $('ledMa').value = led;
+
+  // status
+  let st;
+  if (!S.connected) st = 'Connect to change sensor settings.';
+  else if (!S.demo && !S.rxChar) st = 'No command channel: flash spectrum_pro v4.';
+  else if (S.fw === null) st = 'Waiting for the first frame…';
+  else if (S.fw === 3) st = 'Firmware v3: gain only. Flash v4 for integration time and LED.';
+  else if (P.gain || P.tint || P.led) st = 'Applying from the next frame…';
+  else st = S.sensorMsg || `Firmware v${S.fw}`;
+  $('sensorStatus').textContent = st;
+}
+
+/* ============================================================
+   Reference lookup: darks and blanks come from the log, matched by settings
+   ============================================================ */
+function findDark(cfg) {
+  let best = null, bd = Infinity;
+  for (let i = S.log.length - 1; i >= 0; i--) {
+    const r = S.log[i]; if (r.type !== 'DARK') continue;
+    if (cfg && cfgKey(r) === cfgKey(cfg)) return { rec: r, exact: true };
+    const d = cfg ? Math.abs(Math.log2(r.gain / cfg.gain)) + Math.abs(Math.log2(r.tint / cfg.tint)) : 0;
+    if (d < bd) { bd = d; best = r; }
+  }
+  return best ? { rec: best, exact: !cfg } : null;
+}
+function exactDark(cfg) { const d = findDark(cfg); return d && d.exact ? d.rec : null; }
+function findBlank(src, cfg) {
+  let best = null;
+  for (let i = S.log.length - 1; i >= 0; i--) {
+    const r = S.log[i]; if (r.type !== 'BLANK' || r.source !== src) continue;
+    if (cfg && cfgKey(r) === cfgKey(cfg)) return { rec: r, exact: true };
+    if (!best) best = r;
+  }
+  return best ? { rec: best, exact: !cfg } : null;
+}
 
 /* ============================================================
    Maths
    ============================================================ */
-const norm = (raw, gain) => raw / (gain * tintMs());   // counts per ms at 1x gain
-
-function nearestDark(gain) {
-  const keys = Object.keys(S.darks);
-  if (!keys.length) return null;
-  if (S.darks[gain]) return S.darks[gain];
-  let best = null, bd = Infinity;
-  keys.forEach(k => { const d = Math.abs(Math.log2(parseFloat(k)) - Math.log2(gain)); if (d < bd) { bd = d; best = S.darks[k]; } });
-  return best;
+const normOf = (raw, cfg) => raw / (cfg.gain * cfg.tint);       // counts per ms at 1x gain
+function darkNorm(cfg) {
+  const d = findDark(cfg);
+  return Array.from({ length: NCH }, (_, i) => (d && d.rec.norm[i] !== undefined) ? d.rec.norm[i] : 0);
 }
-function darkNorm(gain, n) {
-  const d = nearestDark(gain);
-  return Array.from({ length: n }, (_, i) => (d && d.norm[i] !== undefined) ? d.norm[i] : 0);
-}
-function absorbance(sampleNorm, sampleGain, blank) {
-  const n = sampleNorm.length;
-  const ds = darkNorm(sampleGain, n), db = darkNorm(blank.gain, n);
+function absorbance(sampleNorm, sampleCfg, blank) {
+  const ds = darkNorm(sampleCfg), db = darkNorm(blank);
   return sampleNorm.map((v, i) => {
     if (blank.norm[i] === undefined) return { T: null, A: null };
     const s = v - ds[i], b = blank.norm[i] - db[i];
@@ -547,42 +738,94 @@ function absorbance(sampleNorm, sampleGain, blank) {
     return { T: s / b, A: -Math.log10(s / b) };
   });
 }
+function channelCV(buf) {
+  const k = buf.length;
+  return Array.from({ length: NCH }, (_, i) => {
+    const xs = buf.map(f => f[i]);
+    const m = xs.reduce((a, b) => a + b, 0) / k;
+    if (m < 20 || k < 2) return null;
+    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (k - 1));
+    return 100 * sd / m;
+  });
+}
 
 /* ============================================================
    Capture
    ============================================================ */
 function startCapture(type) {
-  if (!S.connected) return;
+  if (!S.connected || !S.last || S.capture) return;
   const n = Math.max(1, Math.min(60, Math.round(num($('nFrames').value, 10))));
-  if (type === 'SAMPLE' && !S.blanks[source()]) { note(`No blank for “${source()}” yet. Capture a blank with this light source first.`); return; }
-  S.capture = { type, source: source(), n, frames: [], gain: null, sat: null, restarts: 0, started: Date.now() };
-  note(`${type.toLowerCase()}: waiting for a stable frame…`);
+  const src = source();
+  if (type === 'SAMPLE' && !findBlank(src, null)) { note(`No blank for “${src}” yet. Capture a blank with this light source first.`); return; }
+  const c = { type, source: src, n, frames: [], cfg: null, sig: null, sat: null, restarts: 0, skip: 0,
+    waitLed: null, restoreLed: null, ledT: Date.now(), waitGain: null, restoreAuto: false };
+  // In auto-gain, a dark would climb to 512x: hold the current gain for the dark, so it matches the blank/sample
+  if (type === 'DARK' && S.last.mode === 'A' && canCmd(3)) {
+    c.waitGain = GAINS.indexOf(S.last.gain); c.restoreAuto = true;
+    requestGain('M', c.waitGain);
+  }
+  if ($('ledAuto').checked && canCmd(4)) {
+    const want = type === 'DARK' ? 0 : evenMa();
+    if (S.last.led !== want) {
+      c.waitLed = want;
+      if (type === 'DARK' && S.last.led > 0) c.restoreLed = S.last.led;
+      requestLed(want);
+    }
+  }
+  S.capture = c;
+  note(c.waitLed !== null ? `${type.toLowerCase()}: switching the LED ${c.waitLed ? 'on' : 'off'}…` : `${type.toLowerCase()}: waiting for the next frame…`);
   updateButtons(); progress(0);
 }
 function restartCapture(reason) {
   const c = S.capture; if (!c) return;
-  c.restarts++; c.frames = []; c.gain = null; c.sat = null; progress(0);
+  c.restarts++; c.frames = []; c.cfg = null; c.sig = null; c.sat = null; progress(0);
   if (c.restarts > 6) { abortCapture(`Stopped: signal never settled (${reason}). Check the LED and clamp.`); return; }
   note(`Restarting (${reason})…`);
 }
-function abortCapture(msg) { S.capture = null; progress(0); if (msg) note(msg); updateButtons(); }
+function abortCapture(msg) {
+  const c = S.capture;
+  S.capture = null; progress(0);
+  if (c && c.restoreLed) requestLed(c.restoreLed);
+  if (c && c.restoreAuto) requestGain('A');
+  if (msg) note(msg);
+  updateButtons();
+}
 
 function feedCapture(fr) {
   const c = S.capture; if (!c) return;
-  // In auto mode a saturated frame means the gain is about to change; in manual mode the gain stays put,
-  // so keep the frame and drop only the saturated channels.
-  if (fr.sat && fr.mode !== 'M') { restartCapture(fr.gain === 0.5 ? 'too bright even at 0.5x' : 'saturated'); return; }
-  if (c.gain !== null && fr.gain !== c.gain) { restartCapture('gain changed'); return; }
-  c.gain = fr.gain; c.mode = fr.mode; c.frames.push(fr.vals);
+  const what = c.type.toLowerCase();
+  const gainOk = c.waitGain === null || (fr.mode === 'M' && GAINS.indexOf(fr.gain) === c.waitGain);
+  const ledOk = c.waitLed === null || fr.led === c.waitLed;
+  if (!gainOk || !ledOk) {
+    if (Date.now() - c.ledT > Math.max(8000, 3 * (S.period || estPeriod(fr.tint))))
+      abortCapture(ledOk ? 'The gain did not switch: check the firmware.' : 'The LED did not switch: check the firmware.');
+    return;
+  }
+  if (c.waitGain !== null) c.waitGain = null;
+  if (c.waitLed !== null) { c.waitLed = null; c.skip = fr.led > 0 ? 1 : 0; }   // this frame already has the new LED state
+  if (c.skip > 0) { c.skip--; note(`${what}: letting the LED settle for one frame…`); return; }
+  // Auto mode: a saturated frame means the gain is about to change. Manual: keep it, drop saturated channels later.
+  if (fr.anySat && fr.mode !== 'M') { restartCapture(fr.gain === 0.5 ? 'too bright even at 0.5x' : 'saturated, auto-gain adjusting'); return; }
+  const sig = fr.key + '|' + fr.led;
+  if (c.sig !== null && sig !== c.sig) { restartCapture('settings changed'); return; }
+  if (c.sig === null) {
+    c.sig = sig;
+    c.cfg = { gain: fr.gain, mode: fr.mode, atime: fr.atime, astep: fr.astep, tint: fr.tint, fs: fr.fs, led: fr.led };
+  }
+  c.frames.push(fr.vals);
   c.sat = (c.sat || fr.chSat.map(() => false)).map((s, i) => s || fr.chSat[i]);
   progress(c.frames.length / c.n);
-  note(`${c.type.toLowerCase()}: ${c.frames.length}/${c.n} frames at ${fmtGain(c.gain)}`);
-  if (c.frames.length >= c.n) finishCapture();
+  const left = c.n - c.frames.length;
+  const eta = left && S.period ? ` · ~${Math.ceil(left * S.period / 1000)} s left` : '';
+  note(`${what}: ${c.frames.length}/${c.n} frames at ${cfgLabel(c.cfg)}${eta}`);
+  if (left <= 0) finishCapture();
 }
 
 function finishCapture() {
   const c = S.capture; S.capture = null;
-  const n = c.frames[0].length, k = c.frames.length;
+  if (c.restoreLed) requestLed(c.restoreLed);
+  if (c.restoreAuto) requestGain('A');
+  const cfg = c.cfg, n = c.frames[0].length, k = c.frames.length;
   const mean = [], sd = [], cv = [];
   for (let i = 0; i < n; i++) {
     const xs = c.frames.map(f => f[i]);
@@ -593,33 +836,25 @@ function finishCapture() {
   const rec = {
     id: Date.now().toString(36), time: new Date().toISOString(), type: c.type, source: c.type === 'DARK' ? '' : c.source,
     sampleId: $('sid').value.trim(), bag: $('bag').value.trim(), gap: num($('gap').value, null), notes: $('notes').value.trim(),
-    frames: k, gain: c.gain, gainMode: c.mode === 'M' ? 'manual' : c.mode === 'A' ? 'auto' : '', tint: tintMs(), nCh: n, raw: mean, sd, cv,
-    norm: mean.map(v => norm(v, c.gain)), restarts: c.restarts, satCh: c.sat,
+    frames: k, gain: cfg.gain, gainMode: cfg.mode === 'M' ? 'manual' : 'auto',
+    atime: cfg.atime, astep: cfg.astep, tint: cfg.tint, fs: cfg.fs, led: cfg.led,
+    nCh: n, raw: mean, sd, cv, norm: mean.map(v => normOf(v, cfg)), restarts: c.restarts, satCh: c.sat,
   };
   const lowBlank = num($('sLow').value, 1000), cvWarn = num($('sCV').value, 2);
   const flags = [];
   const satNames = CHANNELS.slice(0, n).filter((_, i) => c.sat[i]).map(ch => ch.k);
   if (satNames.length) flags.push(`saturated: ${satNames.join(' ')}`);
-  if (c.type === 'DARK') { S.darks[c.gain] = rec; }
   if (c.type === 'BLANK') {
-    // A blank with saturated spectral channels (typical of high-gain leak captures) does not replace a clean
-    // absorbance blank for the same source; it stays in the log for ratios.
-    const prev = S.blanks[c.source];
-    const satNow = c.sat.slice(0, 8).some(Boolean), prevClean = prev && !(prev.satCh || []).slice(0, 8).some(Boolean);
-    if (satNow && prevClean) flags.push('kept previous blank for absorbance (this one is saturated)');
-    else S.blanks[c.source] = rec;
     const weak = CHANNELS.slice(0, n).filter((ch, i) => mean[i] < lowBlank).map(ch => ch.k);
     if (weak.length) flags.push(`weak in ${weak.join(' ')}`);
   }
   if (c.type === 'SAMPLE') {
-    const b = S.blanks[c.source];
-    rec.blankId = b.id; rec.blankGain = b.gain;
-    const dk = nearestDark(c.gain); rec.darkId = dk ? dk.id : null;
-    rec.abs = absorbance(rec.norm, c.gain, b)
-      .map((x, i) => (c.sat[i] || (b.satCh && b.satCh[i])) ? { T: null, A: null } : x);
-    if (b.gain !== c.gain) flags.push(`gain ≠ blank (${fmtGain(b.gain)})`);
-    if (!dk) flags.push('no dark');
-    if (b.nCh !== n) flags.push('blank has different channels');
+    const b = findBlank(c.source, rec), dk = findDark(rec);
+    rec.blankId = b.rec.id; rec.darkId = dk ? dk.rec.id : null;
+    rec.abs = absorbance(rec.norm, rec, b.rec)
+      .map((x, i) => (c.sat[i] || (b.rec.satCh && b.rec.satCh[i])) ? { T: null, A: null } : x);
+    if (!b.exact) flags.push(`blank at ${cfgLabel(b.rec)}`);
+    if (!dk) flags.push('no dark'); else if (!dk.exact) flags.push(`dark at ${cfgLabel(dk.rec)}`);
   }
   const noisy = cv.map((v, i) => v !== null && v > cvWarn && mean[i] > 100 ? CHANNELS[i].k : null).filter(Boolean);
   if (noisy.length && c.type !== 'DARK') flags.push(`CV>${cvWarn}% in ${noisy.join(' ')}`);
@@ -628,15 +863,16 @@ function finishCapture() {
   if (c.type === 'SAMPLE') S.lastSample = rec;
   save();
   progress(1);
-  note(`${c.type.toLowerCase()} saved (${k} frames at ${fmtGain(c.gain)})${flags.length ? ' · ' + flags.join(' · ') : ''}`);
+  note(`${c.type.toLowerCase()} saved (${k} frames at ${cfgLabel(cfg)})${flags.length ? ' · ' + flags.join(' · ') : ''}`);
   updateButtons(); renderRefs(); renderLog(); renderResult();
 }
 
 function progress(p) { $('prog').style.width = Math.round(p * 100) + '%'; }
 function note(t) { $('capMsg').textContent = t; }
 function updateButtons() {
-  const busy = !!S.capture, off = !S.connected;
+  const busy = !!S.capture, off = !S.connected || !S.last;
   ['bDark', 'bBlank', 'bSample'].forEach(id => $(id).disabled = off || busy);
+  $('bCancel').hidden = !busy;
 }
 
 /* ============================================================
@@ -657,44 +893,60 @@ function setBars(id, values, labels, max) {
     t.textContent = labels[i];
   });
 }
-function buildLiveBars() { makeBars($('liveBars'), S.nCh, 'L'); fillRatioSelects(); fillFluoSelects(false); }
 
 let liveMax = 1;
 function renderLive(fr) {
   if (!fr) return;
-  const src = source(), blank = S.blanks[src];
-  let values, labels, max;
+  let values, labels, max, hint;
   if (S.view === 'abs') {
-    if (!blank) { $('liveHint').textContent = `No blank for “${src}” yet: capture one to see live absorbance.`; values = fr.vals.map(() => null); labels = values.map(() => '–'); max = 1; }
-    else {
-      const a = absorbance(fr.vals.map(v => norm(v, fr.gain)), fr.gain, blank).map(x => x.A);
-      values = a; labels = a.map(x => fmt(x, 2)); max = Math.max(1, ...a.filter(x => x !== null && isFinite(x)));
-      $('liveHint').textContent = `Single-frame absorbance vs the ${src} blank (unaveraged). Useful to watch bubbles or settling.`;
+    const src = source(), fb = findBlank(src, fr);
+    if (!fb) {
+      values = fr.vals.map(() => null); labels = values.map(() => '–'); max = 1;
+      hint = `No blank for “${src}” yet: capture one to see live absorbance.`;
+    } else {
+      values = absorbance(fr.vals.map(v => normOf(v, fr)), fr, fb.rec)
+        .map((x, i) => fr.chSat[i] || (fb.rec.satCh && fb.rec.satCh[i]) ? null : x.A);
+      labels = values.map(x => fmt(x, 2));
+      max = Math.max(1, ...values.filter(x => x !== null && isFinite(x)));
+      hint = `Single-frame absorbance vs the ${src} blank (${cfgLabel(fb.rec)}${fb.exact ? '' : ', other settings'}). Useful to watch bubbles or settling.`;
+    }
+  } else if (S.view === 'noise') {
+    const n = S.noise.length;
+    if (n < 3) {
+      values = fr.vals.map(() => null); labels = values.map(() => '…'); max = 1;
+      hint = `Collecting frames at these settings (${n}/3)…`;
+    } else {
+      values = channelCV(S.noise);
+      labels = values.map((v, i) => fr.chSat[i] ? 'SAT' : v === null ? '–' : v.toFixed(v < 1 ? 2 : 1));
+      max = Math.max(0.5, ...values.filter(v => v !== null));
+      hint = `Frame-to-frame CV (%) over the last ${n} frames at ${cfgLabel(fr)}. Same sample, different settings: lower is better.`;
     }
   } else {
-    values = S.view === 'raw' ? fr.vals : fr.vals.map(v => norm(v, fr.gain));
+    values = S.view === 'raw' ? fr.vals : fr.vals.map(v => normOf(v, fr));
     labels = values.map((v, i) => fr.chSat[i] ? 'SAT' : S.view === 'raw' ? Math.round(v).toString() : (v >= 100 ? v.toFixed(0) : v.toFixed(2)));
-    const m = Math.max(...values);
-    liveMax = Math.max(m, liveMax * 0.97); max = S.view === 'raw' ? 65535 : liveMax;
-    $('liveHint').textContent = S.view === 'raw' ? 'Raw ADC counts as sent by the sensor (saturation at 60 000).'
-      : 'Counts per ms at 1x gain: comparable across gain changes.';
+    if (S.view === 'raw') { max = fr.fs; hint = `Raw counts. Full scale at these settings: ${fr.fs.toLocaleString()}; flagged SAT above ${fr.satLevel.toLocaleString()}.`; }
+    else {
+      liveMax = Math.max(Math.max(...values), liveMax * 0.97); max = liveMax;
+      hint = 'Counts per ms at 1x gain (raw ÷ gain ÷ integration time): comparable across settings.';
+    }
   }
   setBars('L', values, labels, max);
+  $('liveHint').textContent = hint;
 }
 
 function renderRefs() {
-  const src = source();
-  const dk = Object.values(S.darks).sort((a, b) => a.time < b.time ? 1 : -1)[0];
-  $('refDark').innerHTML = dk ? `Dark: <b>${fmtGain(dk.gain)}</b> · ${timeStr(dk.time)} (${Object.keys(S.darks).length} gain level${Object.keys(S.darks).length > 1 ? 's' : ''})` : 'Dark: <b>none</b>';
-  const b = S.blanks[src];
-  $('refBlank').innerHTML = b ? `Blank (${src}): <b>${fmtGain(b.gain)}</b> · ${timeStr(b.time)}` : `Blank (${src}): <b>none</b>`;
+  const src = source(), fr = S.last;
+  const d = findDark(fr), b = findBlank(src, fr);
+  const match = x => !fr ? '' : x.exact ? ' · <span class="ok">matches</span>' : ' · <span class="w">other settings</span>';
+  $('refDark').innerHTML = d ? `Dark: <b>${cfgLabel(d.rec)}</b> · ${timeStr(d.rec.time)}${match(d)}` : 'Dark: <b>none</b>';
+  $('refBlank').innerHTML = b ? `Blank (${src}): <b>${cfgLabel(b.rec)}</b> · ${timeStr(b.rec.time)}${match(b)}` : `Blank (${src}): <b>none</b>`;
 }
 
 function renderResult() {
   const r = S.lastSample;
   $('resultSec').hidden = !r;
   if (!r) return;
-  $('resTitle').textContent = `${r.sampleId || 'unnamed'} · ${r.source} · ${fmtGain(r.gain)} · ${timeStr(r.time)}`;
+  $('resTitle').textContent = `${r.sampleId || 'unnamed'} · ${r.source} · ${cfgLabel(r)} · ${timeStr(r.time)}`;
   makeBars($('resBars'), r.nCh, 'R');
   const lowBlank = num($('sLow').value, 1000);
   const blank = S.log.find(x => x.id === r.blankId);
@@ -703,7 +955,8 @@ function renderResult() {
   setBars('R', A, A.map(x => fmt(x, 3)), Math.max(0.5, ...A.filter(x => x !== null && isFinite(x))));
   const rows = CHANNELS.slice(0, r.nCh).map((ch, i) => {
     const why = [];
-    if (blank && blank.raw[i] < lowBlank) why.push('blank too weak');
+    if (!blank) why.push('blank deleted');
+    else if (blank.raw[i] < lowBlank) why.push('blank too weak');
     if (r.satCh && r.satCh[i]) why.push('saturated');
     else if (blank && blank.satCh && blank.satCh[i]) why.push('blank saturated');
     if (r.cv[i] !== null && r.cv[i] > num($('sCV').value, 2) && r.raw[i] > 100) why.push('noisy');
@@ -719,96 +972,27 @@ function renderResult() {
 function renderLog() {
   $('logCount').textContent = `${S.log.length} capture${S.log.length === 1 ? '' : 's'}`;
   if (!S.log.length) { $('logTable').innerHTML = '<tr><td class="dim">No captures yet.</td></tr>'; return; }
-  const key = r => {
-    if (r.type !== 'SAMPLE') return ['', '', ''];
-    const a = i => r.abs[i] ? fmt(r.abs[i].A, 3) : '–';
-    return [a(6), a(7), r.nCh > 9 ? a(9) : '–'];
-  };
-  const rows = [...S.log].reverse().map(r => {
-    const k = key(r);
-    return `<tr><td>${timeStr(r.time)}</td><td><span class="tag ${r.type}">${r.type}</span></td><td>${r.source || '–'}</td>
-      <td>${r.sampleId || '–'}</td><td>${fmtGain(r.gain)}</td><td>${r.frames}</td><td>${k[0]}</td><td>${k[1]}</td><td>${k[2]}</td>
-      <td class="flag">${(r.flags || []).join(' · ')}</td><td><button class="small" data-del="${r.id}">✕</button></td></tr>`;
-  }).join('');
-  $('logTable').innerHTML = `<tr><th>Time</th><th>Type</th><th>Source</th><th>Sample</th><th>Gain</th><th>N</th>
+  const a = (r, i) => r.type === 'SAMPLE' && r.abs && r.abs[i] ? fmt(r.abs[i].A, 3) : '';
+  const rows = [...S.log].reverse().map(r =>
+    `<tr><td>${timeStr(r.time)}</td><td><span class="tag ${r.type}">${r.type}</span></td><td>${r.source || '–'}</td>
+      <td>${r.sampleId || '–'}</td><td>${cfgLabel(r)}</td><td>${r.frames}</td><td>${a(r, 6)}</td><td>${a(r, 7)}</td><td>${a(r, 9)}</td>
+      <td class="flag">${(r.flags || []).join(' · ')}</td><td><button class="small" data-del="${r.id}">✕</button></td></tr>`).join('');
+  $('logTable').innerHTML = `<tr><th>Time</th><th>Type</th><th>Source</th><th>Sample</th><th>Settings</th><th>N</th>
     <th>A630</th><th>A680</th><th>A NIR</th><th style="text-align:left">Flags</th><th></th></tr>${rows}`;
 }
 
 /* ============================================================
-   Gain control (firmware v3: RX characteristic, "G:AUTO" / "G:<index>")
-   ============================================================ */
-function gainIndex(g) { return GAINS.indexOf(g); }
-
-function sendCmd(cmd) {
-  if (S.demo) { demoCommand(cmd); return Promise.resolve(); }
-  if (!S.rxChar) return Promise.reject(new Error('no command channel'));
-  const data = new TextEncoder().encode(cmd);
-  // GATT writes must not overlap: queue them
-  S.writeChain = S.writeChain.catch(() => {}).then(() =>
-    S.rxChar.writeValueWithResponse ? S.rxChar.writeValueWithResponse(data) : S.rxChar.writeValue(data));
-  return S.writeChain;
-}
-
-function requestGain(mode, idx) {
-  if (!S.connected) return;
-  if (mode === 'M') idx = Math.max(0, Math.min(GAINS.length - 1, idx));
-  S.gainReq = { mode, idx: mode === 'M' ? idx : null, t: Date.now() };
-  renderGainUI();
-  sendCmd(mode === 'A' ? 'G:AUTO' : 'G:' + idx).catch(err => {
-    S.gainReq = null; renderGainUI();
-    $('gainStatus').textContent = 'Command failed: ' + err.message;
-  });
-}
-
-function onGainReport(mode, gain) {
-  S.fwMode = mode; S.lastGain = gain;
-  const q = S.gainReq;
-  if (q && mode === q.mode && (q.mode === 'A' || gainIndex(gain) === q.idx)) S.gainReq = null;   // confirmed
-  else if (q && Date.now() - q.t > 6000) { S.gainReq = null; $('gainStatus').textContent = 'No confirmation from the sensor.'; }
-  if (!q || !S.gainReq) renderGainUI();
-  else renderGainUI(true);
-}
-
-function renderGainUI(pendingOnly) {
-  const can = S.connected && (S.demo || !!S.rxChar) && S.fwMode !== null;
-  const reported = S.connected && S.lastGain ? S.lastGain : null;
-  const q = S.gainReq;
-  const mode = q ? q.mode : (S.fwMode || 'A');
-  [...$('modeSeg').children].forEach(b => { b.classList.toggle('on', b.dataset.m === mode); b.disabled = !can; });
-  const sel = $('gSel');
-  if (!sel.options.length) sel.innerHTML = GAINS.map((g, i) => `<option value="${i}">${fmtGain(g)}</option>`).join('');
-  const shownIdx = q && q.mode === 'M' ? q.idx : (reported !== null ? gainIndex(reported) : 9);
-  if (!pendingOnly || q) sel.value = String(shownIdx);
-  sel.disabled = $('gDown').disabled = $('gUp').disabled = !can;
-  const st = $('gainStatus');
-  if (!S.connected) st.textContent = 'Connect to control the gain.';
-  else if (!S.demo && (!S.rxChar || (S.fwMode === null && S.frames > 3)))
-    st.textContent = 'This firmware has no gain control: flash spectrum_pro.ino v3.';
-  else if (q) st.textContent = q.mode === 'A' ? 'Switching to auto…' : `Setting ${fmtGain(GAINS[q.idx])}…`;
-  else if (S.fwMode === 'M') st.textContent = `Manual · ${reported !== null ? fmtGain(reported) : '–'} (fixed)`;
-  else if (S.fwMode === 'A') st.textContent = `Auto · ${reported !== null ? fmtGain(reported) : '–'}`;
-}
-
-/* ============================================================
-   Live ratio between any two channels (same frame -> same gain, so raw counts compare directly)
+   Live ratio between any two channels (same frame -> same settings)
    ============================================================ */
 const LR = { buf: [], key: '' };
-const LR_KEY = 'spirulinaPhotometer.ratioCh';
-function fillRatioSelects() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(LR_KEY) || '{}'); } catch (e) {}
-  [['rA', saved.a || 'F8'], ['rB', saved.b || 'F6']].forEach(([id, def]) => {
-    const sel = $(id), cur = sel.value || def;
-    sel.innerHTML = CHANNELS.slice(0, S.nCh).map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
-    sel.value = CHANNELS.slice(0, S.nCh).some(c => c.k === cur) ? cur : def;
-    if (!sel.value) sel.selectedIndex = 0;
-  });
+function fillRatioSelects(saved) {
+  saved = saved || {};
+  const opts = CHANNELS.map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
+  $('rA').innerHTML = opts; $('rB').innerHTML = opts;
+  $('rA').value = chIdx(saved.a) >= 0 ? saved.a : 'F8';
+  $('rB').value = chIdx(saved.b) >= 0 ? saved.b : 'F6';
 }
-function ratioChanged() {
-  try { localStorage.setItem(LR_KEY, JSON.stringify({ a: $('rA').value, b: $('rB').value })); } catch (e) {}
-  LR.buf = []; LR.key = '';
-  if (S.last) updateRatio(S.last, false);
-}
+function ratioChanged() { savePrefs(); LR.buf = []; LR.key = ''; if (S.last) updateRatio(S.last, false); }
 function fmtRatio(r) {
   if (r === null || !isFinite(r)) return '–';
   const pct = 100 * r;
@@ -817,13 +1001,13 @@ function fmtRatio(r) {
   return pct.toExponential(2) + ' %';
 }
 function updateRatio(fr, push = true) {
-  const ia = CHANNELS.findIndex(c => c.k === $('rA').value), ib = CHANNELS.findIndex(c => c.k === $('rB').value);
-  if (ia < 0 || ib < 0 || ia >= fr.vals.length || ib >= fr.vals.length) return;
-  const dk = $('rDark').checked ? S.darks[fr.gain] : null;          // dark taken at exactly this gain
+  const ia = chIdx($('rA').value), ib = chIdx($('rB').value);
+  if (ia < 0 || ib < 0) return;
+  const dk = $('rDark').checked ? exactDark(fr) : null;
   const darkOk = !!(dk && dk.raw[ia] !== undefined && dk.raw[ib] !== undefined);
   const a = fr.vals[ia] - (darkOk ? dk.raw[ia] : 0), b = fr.vals[ib] - (darkOk ? dk.raw[ib] : 0);
   const satA = fr.chSat[ia], satB = fr.chSat[ib];
-  const key = `${ia}|${ib}|${fr.gain}|${darkOk}`;
+  const key = `${ia}|${ib}|${fr.key}|${fr.led}|${darkOk}`;
   if (key !== LR.key) { LR.key = key; LR.buf = []; }
   const valid = !satA && !satB && b > 0;
   const r = valid ? a / b : null;
@@ -835,19 +1019,19 @@ function updateRatio(fr, push = true) {
   const now = $('rNow');
   now.textContent = satA || satB ? 'SAT' : fmtRatio(r);
   now.className = 'big' + (satA || satB || !valid ? ' warn' : '');
-  $('rNowSub').textContent = n ? `avg ${fmtRatio(mean)} (n=${n}${sd !== null && mean ? ', ±' + (100 * sd / Math.abs(mean) / Math.sqrt(n)).toFixed(1) + '%' : ''})` : ' ';
+  $('rNowSub').textContent = n ? `avg ${fmtRatio(mean)} (n=${n}${sd !== null && mean ? ', ±' + (100 * sd / Math.abs(mean) / Math.sqrt(n)).toFixed(1) + '%' : ''})` : ' ';
   [['A', ia, a, satA, fr.vals[ia]], ['B', ib, b, satB, fr.vals[ib]]].forEach(([s, i, net, sat, raw]) => {
     $('r' + s + 'Name').textContent = `${CHANNELS[i].k} · ${CHANNELS[i].wl}`;
     const v = $('r' + s + 'Val');
     v.textContent = sat ? 'SAT' : Math.round(darkOk ? net : raw).toString();
     v.className = 'big' + (sat ? ' warn' : '');
-    $('r' + s + 'Sub').textContent = darkOk ? `raw ${raw} − dark ${Math.round(dk.raw[i])}` : `raw counts · ${fmtGain(fr.gain)}`;
+    $('r' + s + 'Sub').textContent = darkOk ? `raw ${raw} − dark ${Math.round(dk.raw[i])}` : `raw counts · ${cfgLabel(fr)}`;
   });
   const hint = $('rHint');
-  if (satA || satB) hint.textContent = `${satB ? CHANNELS[ib].k : CHANNELS[ia].k} is saturated at ${fmtGain(fr.gain)}: lower the gain (Manual) until both channels read below 60 000.`;
-  else if ($('rDark').checked && !darkOk) hint.textContent = `No dark at ${fmtGain(fr.gain)} yet: showing raw counts. Capture a Dark (LED off) at this gain to subtract it.`;
-  else if (a < 50) hint.textContent = `${CHANNELS[ia].k} is only ${Math.round(a)} counts above dark: raise the gain if ${CHANNELS[ib].k} allows it.`;
-  else hint.textContent = `Same frame, same gain (${fmtGain(fr.gain)}). The average uses the last 20 frames; it resets when gain or channels change, or with Reset avg.`;
+  if (satA || satB) hint.textContent = `${satB ? CHANNELS[ib].k : CHANNELS[ia].k} is saturated at ${cfgLabel(fr)}: lower the gain or the integration time.`;
+  else if ($('rDark').checked && !darkOk) hint.textContent = `No dark at ${cfgLabel(fr)} yet: showing raw counts. Capture a Dark at these settings to subtract it.`;
+  else if (a < 50) hint.textContent = `${CHANNELS[ia].k} is only ${Math.round(a)} counts above dark: raise gain or integration if ${CHANNELS[ib].k} allows it.`;
+  else hint.textContent = `Same frame, same settings (${cfgLabel(fr)}). The average uses the last 20 frames; it resets when settings or channels change.`;
 }
 
 /* ============================================================
@@ -858,26 +1042,24 @@ const FL = { refs: {}, saved: [], collect: null, buf: [], key: '', trend: [] };
 const EX_DEFAULT = { '590 nm amber': 'F6', '450 nm blue': 'F2', '620 nm': 'F7', '660 nm': 'F8', '850 nm': 'NIR' };
 function flSave() { try { localStorage.setItem(FL_KEY, JSON.stringify({ refs: FL.refs, saved: FL.saved })); } catch (e) {} }
 function flLoad() { try { const d = JSON.parse(localStorage.getItem(FL_KEY) || 'null'); if (d) { FL.refs = d.refs || {}; FL.saved = d.saved || []; } } catch (e) {} }
-const chIdx = k => CHANNELS.findIndex(c => c.k === k);
 function wlNum(i) { const w = parseFloat(CHANNELS[i].wl); return isFinite(w) ? w : null; }
 
 function fillFluoSelects(fromSource) {
-  const opts = CHANNELS.slice(0, S.nCh).map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
+  const opts = CHANNELS.map(c => `<option value="${c.k}">${c.k} · ${c.wl}</option>`).join('');
   const ex = $('fEx'), em = $('fEm');
-  const curEx = fromSource ? (EX_DEFAULT[source()] || ex.value || 'F6') : (ex.value || EX_DEFAULT[source()] || 'F6');
+  const curEx = fromSource ? (EX_DEFAULT[source()] || ex.value || 'F6') : (ex.value || 'F6');
   const curEm = em.value || 'F8';
   ex.innerHTML = opts; em.innerHTML = opts;
-  ex.value = chIdx(curEx) < S.nCh ? curEx : 'F6';
-  em.value = chIdx(curEm) < S.nCh ? curEm : 'F8';
-  if (em.value === ex.value) em.value = ex.value === 'F8' ? (S.nCh > 9 ? 'NIR' : 'F7') : 'F8';
+  ex.value = chIdx(curEx) >= 0 ? curEx : 'F6';
+  em.value = chIdx(curEm) >= 0 ? curEm : 'F8';
+  if (em.value === ex.value) em.value = ex.value === 'F8' ? 'NIR' : 'F8';
 }
 const flRefKey = () => `${source()}|${$('fEx').value}`;
 function flResetAvg() { FL.buf = []; FL.key = ''; }
 
-// dark-subtracted counts per ms at 1x for every channel of a frame (null if no dark at this gain)
+// dark-subtracted counts per ms at 1x for every channel (dark only if taken at exactly these settings)
 function netFrame(fr) {
-  const dk = S.darks[fr.gain];
-  const scale = 1 / (fr.gain * tintMs());
+  const dk = exactDark(fr), scale = 1 / (fr.gain * fr.tint);
   return { net: fr.vals.map((v, i) => (v - (dk && dk.raw[i] !== undefined ? dk.raw[i] : 0)) * scale), dark: !!dk };
 }
 
@@ -885,25 +1067,26 @@ function startFluoRef() {
   if (!S.connected) return;
   const ex = chIdx($('fEx').value);
   if (!wlNum(ex)) { $('fRefMsg').textContent = 'Pick a narrow spectral channel (F1–F8) as excitation.'; return; }
-  FL.collect = { ex, key: flRefKey(), n: Math.max(5, Math.min(60, Math.round(num($('nFrames').value, 10)))), rows: [], gain: null, restarts: 0 };
+  FL.collect = { ex, key: flRefKey(), n: Math.max(5, Math.min(60, Math.round(num($('nFrames').value, 10)))), rows: [], sig: null, cfg: null, restarts: 0 };
   $('fSetRef').disabled = true;
   $('fRefMsg').textContent = 'Reference: medium in the clamp, LED on… collecting.';
 }
 function feedFluoRef(fr) {
   const c = FL.collect; if (!c) return;
   const fail = why => {
-    c.rows = []; c.gain = null; c.restarts++; $('fProg').style.width = '0%';
-    if (c.restarts > 6) { FL.collect = null; $('fSetRef').disabled = false; $('fRefMsg').textContent = 'Reference stopped: ' + why; }
+    c.rows = []; c.sig = null; c.restarts++; $('fProg').style.width = '0%';
+    if (c.restarts > 6) { FL.collect = null; $('fSetRef').disabled = !S.connected; $('fRefMsg').textContent = 'Reference stopped: ' + why; }
     else $('fRefMsg').textContent = 'Reference restarting: ' + why;
   };
-  if (fr.chSat[c.ex]) return fail(`${CHANNELS[c.ex].k} is saturated, lower the gain.`);
-  if (c.gain !== null && fr.gain !== c.gain) return fail('gain changed.');
+  if (fr.chSat[c.ex]) return fail(`${CHANNELS[c.ex].k} is saturated, lower the gain or integration.`);
+  const sig = fr.key + '|' + fr.led;
+  if (c.sig !== null && sig !== c.sig) return fail('settings changed.');
   const { net, dark } = netFrame(fr);
   if (!(net[c.ex] > 0)) return fail('no excitation light: is the LED on?');
-  c.gain = fr.gain; c.dark = dark;
+  c.sig = sig; c.dark = dark; c.cfg = { gain: fr.gain, atime: fr.atime, astep: fr.astep, tint: fr.tint };
   c.rows.push({ net, sat: fr.chSat.slice() });
   $('fProg').style.width = Math.round(100 * c.rows.length / c.n) + '%';
-  if (c.rows.length < c.n) { $('fRefMsg').textContent = `Reference: ${c.rows.length}/${c.n} frames at ${fmtGain(fr.gain)}`; return; }
+  if (c.rows.length < c.n) { $('fRefMsg').textContent = `Reference: ${c.rows.length}/${c.n} frames at ${cfgLabel(fr)}`; return; }
   const n = c.rows[0].net.length, k = [], kse = [], sat = [];
   for (let i = 0; i < n; i++) {
     const rs = c.rows.map(r => r.net[i] / r.net[c.ex]);
@@ -912,7 +1095,7 @@ function feedFluoRef(fr) {
     k.push(m); kse.push(sd / Math.sqrt(rs.length)); sat.push(c.rows.some(r => r.sat[i]));
   }
   const E0 = c.rows.reduce((a, r) => a + r.net[c.ex], 0) / c.rows.length;
-  FL.refs[c.key] = { ex: c.ex, k, kse, sat, E0, gain: c.gain, dark: c.dark, time: new Date().toISOString(), n: c.rows.length };
+  FL.refs[c.key] = { ex: c.ex, k, kse, sat, E0, ...c.cfg, dark: c.dark, time: new Date().toISOString(), n: c.rows.length };
   FL.collect = null; $('fSetRef').disabled = !S.connected; $('fProg').style.width = '100%';
   flSave(); flResetAvg(); FL.trend = [];
   renderFluoRef();
@@ -922,8 +1105,8 @@ function renderFluoRef() {
   if (FL.collect) return;
   if (!r) { $('fRefMsg').textContent = `No leak reference for ${source()} with ${$('fEx').value} as excitation yet.`; return; }
   const em = chIdx($('fEm').value);
-  $('fRefMsg').textContent = `Reference ${timeStr(r.time)} · ${fmtGain(r.gain)} · leak ${CHANNELS[em].k}/${CHANNELS[r.ex].k} = ${fmtRatio(r.k[em])}` +
-    (r.dark ? '' : ' · taken without a dark at that gain') + (r.sat[em] ? ` · ${CHANNELS[em].k} was saturated` : '');
+  $('fRefMsg').textContent = `Reference ${timeStr(r.time)} · ${r.atime !== undefined ? cfgLabel(r) : fmtGain(r.gain)} · leak ${CHANNELS[em].k}/${CHANNELS[r.ex].k} = ${fmtRatio(r.k[em])}` +
+    (r.dark ? '' : ' · taken without a dark at those settings') + (r.sat[em] ? ` · ${CHANNELS[em].k} was saturated` : '');
 }
 
 function setVerdict(txt, cls) { const v = $('fVerdict'); v.textContent = txt; v.className = 'fverdict' + (cls ? ' ' + cls : ''); }
@@ -934,12 +1117,12 @@ function updateFluo(fr) {
   const ref = FL.refs[flRefKey()];
   const blankOut = () => { ['fExcess', 'fEnh', 'fFI'].forEach(id => { $(id).textContent = '–'; $(id).className = 'big'; });
     ['fExcessSub', 'fEnhSub', 'fFISub'].forEach(id => $(id).innerHTML = '&nbsp;'); };
-  if (!ref || ref.ex !== ex || em >= fr.vals.length) {
+  if (!ref || ref.ex !== ex) {
     setVerdict(FL.collect ? 'Learning leak…' : 'No reference'); blankOut(); $('fTable').innerHTML = ''; return;
   }
   const { net, dark } = netFrame(fr);
   const sat = fr.chSat[ex] || fr.chSat[em];
-  const key = `${ex}|${em}|${fr.gain}|${ref.time}`;
+  const key = `${ex}|${em}|${fr.key}|${fr.led}|${ref.time}`;
   if (key !== FL.key) { FL.key = key; FL.buf = []; }
   const pred = ref.k.map(k => k * net[ex]);
   const exc = net.map((v, i) => v - pred[i]);
@@ -949,39 +1132,39 @@ function updateFluo(fr) {
   if (FL.buf.length > 15) FL.buf.shift();
   FL.trend.push(sat ? null : fi); if (FL.trend.length > 150) FL.trend.shift();
 
-  const cnt = v => v * fr.gain * tintMs();                       // back to counts at the current gain
+  const cnt = v => v * fr.gain * fr.tint;                       // back to counts at the current settings
   const nb = FL.buf.length;
   const mean = f => FL.buf.reduce((a, b) => a + b[f], 0) / nb;
   let z = null, mExc = null, mFi = null, mEnh = null, se = null;
   if (nb >= 3) {
     mExc = mean('exc'); mFi = mean('fi'); mEnh = mean('enh'); const mEx = mean('netEx');
     const sd = Math.sqrt(FL.buf.reduce((a, b) => a + (b.exc - mExc) ** 2, 0) / (nb - 1));
-    se = Math.sqrt((sd / Math.sqrt(nb)) ** 2 + (ref.kse[em] * mEx) ** 2);   // frame noise + uncertainty of the leak factor
+    se = Math.sqrt((sd / Math.sqrt(nb)) ** 2 + (ref.kse[em] * mEx) ** 2);   // frame noise + leak-factor uncertainty
     z = se > 0 ? mExc / se : null;
   }
   if (sat) setVerdict(`${fr.chSat[ex] ? CHANNELS[ex].k : CHANNELS[em].k} saturated`, 'bad');
-  else if (!dark) setVerdict(`No dark at ${fmtGain(fr.gain)}`, 'warn');
+  else if (!dark) setVerdict(`No dark at ${cfgLabel(fr)}`, 'warn');
   else if (z === null) setVerdict('Collecting…');
   else if (z >= 5 && mEnh >= 1.1) setVerdict('Fluorescence detected', 'good');
   else if (z >= 3 && mEnh >= 1.05) setVerdict('Possible fluorescence', 'warn');
   else if (z <= -3) setVerdict('Below leak: check reference', 'warn');
   else setVerdict('Not distinguishable from leak');
 
+  if (!$('fluoDet').open) return;                                // skip the heavy rendering while folded
   $('fExcess').textContent = sat ? 'SAT' : `${exc[em] >= 0 ? '+' : ''}${Math.round(cnt(exc[em]))}`;
   $('fExcess').className = 'big' + (sat ? ' warn' : '');
-  $('fExcessSub').textContent = z !== null ? `counts in ${CHANNELS[em].k} · avg ${mExc >= 0 ? '+' : ''}${Math.round(cnt(mExc))} = ${z.toFixed(1)}σ` : `counts in ${CHANNELS[em].k} at ${fmtGain(fr.gain)}`;
+  $('fExcessSub').textContent = z !== null ? `counts in ${CHANNELS[em].k} · avg ${mExc >= 0 ? '+' : ''}${Math.round(cnt(mExc))} = ${z.toFixed(1)}σ` : `counts in ${CHANNELS[em].k} at ${cfgLabel(fr)}`;
   $('fEnh').textContent = sat || enh[em] === null ? '–' : enh[em].toFixed(2) + '×';
   $('fEnhSub').textContent = mEnh !== null ? `avg ${mEnh.toFixed(2)}× · 1.00× = leak only` : '1.00× = leak only';
   $('fFI').textContent = sat ? '–' : (1000 * fi).toFixed(2) + ' ‰';
   $('fFISub').textContent = mFi !== null ? `avg ${(1000 * mFi).toFixed(2)} ± ${(1000 * se / ref.E0).toFixed(2)} ‰` : 'excess ÷ excitation';
 
-  // per-channel table (all spectral channels + NIR)
-  const rows = CHANNELS.slice(0, fr.vals.length).map((c, i) => {
+  const rows = CHANNELS.map((c, i) => {
     if (c.k === 'Clear') return '';
     const isEx = i === ex, below = wlNum(i) !== null && wlNum(ex) !== null && wlNum(i) < wlNum(ex);
     const role = isEx ? 'excitation' : i === em ? 'emission' : below ? 'shorter than LED' : '';
     const s = fr.chSat[i] || ref.sat[i];
-    const weak = !isEx && cnt(pred[i]) < 20 && cnt(net[i]) < 20;      // too few counts for a meaningful ratio
+    const weak = !isEx && cnt(pred[i]) < 20 && cnt(net[i]) < 20;
     return `<tr class="${isEx ? 'ex' : ''}"><td>${c.k} <span class="dim">${c.wl}</span></td>
       <td>${s ? 'SAT' : Math.round(cnt(net[i]))}</td><td>${isEx || s ? '–' : Math.round(cnt(pred[i]))}</td>
       <td>${isEx || s ? '–' : (exc[i] >= 0 ? '+' : '') + Math.round(cnt(exc[i]))}</td>
@@ -997,8 +1180,8 @@ function drawTrend() {
   const vals = pts.filter(v => v !== null);
   if (!vals.length) { svg.innerHTML = ''; return; }
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
-  if (hi - lo < 0.05) { hi += 0.05; }
-  const x = i => padL + (W - padL - padR) * (i / Math.max(1, 149));
+  if (hi - lo < 0.05) hi += 0.05;
+  const x = i => padL + (W - padL - padR) * (i / 149);
   const y = v => padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo));
   let d = '', pen = false;
   pts.forEach((v, i) => { if (v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; pen = true; });
@@ -1007,20 +1190,19 @@ function drawTrend() {
     <text x="${padL - 4}" y="${padT + 8}" text-anchor="end">${hi.toFixed(2)}</text>
     <text x="${padL - 4}" y="${H - padB}" text-anchor="end">${lo.toFixed(2)}</text>
     <path class="ln" d="${d}"/>`;
-  const last = vals[vals.length - 1];
-  $('fTrendHint').textContent = `Fluorescence index (‰), last ${pts.length} frames · now ${last.toFixed(2)} ‰ · dashed line = leak only.`;
+  $('fTrendHint').textContent = `Fluorescence index (‰), last ${pts.length} frames · now ${vals[vals.length - 1].toFixed(2)} ‰ · dashed line = leak only.`;
 }
 
 function saveFluoReading() {
   const ref = FL.refs[flRefKey()], nb = FL.buf.length;
-  if (!ref || nb < 3) { $('fRefMsg').textContent = 'Need a reference and a few stable frames before saving.'; return; }
+  if (!ref || nb < 3 || !S.last) { $('fRefMsg').textContent = 'Need a reference and a few stable frames before saving.'; return; }
   const em = chIdx($('fEm').value);
   const mean = f => FL.buf.reduce((a, b) => a + b[f], 0) / nb;
   const mExc = mean('exc'), mEx = mean('netEx');
   const sd = Math.sqrt(FL.buf.reduce((a, b) => a + (b.exc - mExc) ** 2, 0) / (nb - 1));
   const se = Math.sqrt((sd / Math.sqrt(nb)) ** 2 + (ref.kse[em] * mEx) ** 2);
   FL.saved.push({ id: Date.now().toString(36), time: new Date().toISOString(), label: $('fLabel').value.trim() || '–',
-    source: source(), ex: CHANNELS[ref.ex].k, em: CHANNELS[em].k, gain: S.lastGain, n: nb,
+    source: source(), ex: CHANNELS[ref.ex].k, em: CHANNELS[em].k, gain: S.last.gain, tint: S.last.tint, n: nb,
     fi: 1000 * mean('fi'), fiSe: 1000 * se / ref.E0, enh: mean('enh'), z: se > 0 ? mExc / se : null, verdict: $('fVerdict').textContent });
   flSave(); renderFluoSaved();
 }
@@ -1031,109 +1213,113 @@ function renderFluoSaved() {
       <td>${r.fi.toFixed(2)} ± ${r.fiSe.toFixed(2)}</td><td>${r.enh.toFixed(2)}×</td><td>${r.z !== null ? r.z.toFixed(1) : '–'}</td>
       <td class="flag">${r.verdict}</td><td><button class="small" data-fdel="${r.id}">✕</button></td></tr>`).join('');
 }
-function exportFluo() {
-  if (!FL.saved.length) { $('fRefMsg').textContent = 'No saved readings yet.'; return; }
-  const q = v => { const s = (v === null || v === undefined) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const lines = ['time,label,source,excitation_ch,emission_ch,gain,frames,fluorescence_index_permil,fi_se_permil,measured_over_leak,sigma,verdict',
-    ...FL.saved.map(r => [r.time, r.label, r.source, r.ex, r.em, r.gain, r.n, r.fi.toFixed(4), r.fiSe.toFixed(4), r.enh.toFixed(4), r.z !== null ? r.z.toFixed(2) : '', r.verdict].map(q).join(','))];
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
-  a.download = 'fluorescence_readings.csv'; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
 
 /* ============================================================
-   CSV export (reference columns left empty to fill after extractions)
+   CSV export
    ============================================================ */
+const csvQ = v => { const s = (v === null || v === undefined) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function exportFluo() {
+  if (!FL.saved.length) { $('fRefMsg').textContent = 'No saved readings yet.'; return; }
+  const lines = ['time,label,source,excitation_ch,emission_ch,gain,tint_ms,frames,fluorescence_index_permil,fi_se_permil,measured_over_leak,sigma,verdict',
+    ...FL.saved.map(r => [r.time, r.label, r.source, r.ex, r.em, r.gain, r.tint ? r.tint.toFixed(2) : '', r.n, r.fi.toFixed(4), r.fiSe.toFixed(4),
+      r.enh.toFixed(4), r.z !== null ? r.z.toFixed(2) : '', r.verdict].map(csvQ).join(','))];
+  download('fluorescence_readings.csv', lines.join('\n'));
+}
 function exportCSV() {
   if (!S.log.length) { note('Nothing to export yet.'); return; }
   const ch = CHANNELS.map(c => c.k);
-  const head = ['time', 'type', 'source', 'sample_id', 'bag', 'gap_mm', 'notes', 'frames', 'gain', 'gain_mode', 'tint_ms', 'n_channels',
-    'blank_id', 'dark_id', 'record_id', 'flags',
+  const head = ['time', 'type', 'source', 'sample_id', 'bag', 'gap_mm', 'notes', 'frames', 'gain', 'gain_mode',
+    'atime', 'astep', 'tint_ms', 'full_scale', 'led_mA', 'blank_id', 'dark_id', 'record_id', 'flags',
     ...ch.map(c => 'raw_' + c), ...ch.map(c => 'cv_' + c), ...ch.map(c => 'norm_' + c), ...ch.map(c => 'net_' + c),
     ...ch.map(c => 'T_' + c), ...ch.map(c => 'A_' + c),
     'ref_dry_weight_g_L', 'ref_PC_mg_L', 'ref_Chl_mg_L', 'ref_Car_mg_L'];
-  const q = v => { const s = (v === null || v === undefined) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const pad = (arr, f) => ch.map((_, i) => (arr && arr[i] !== undefined && arr[i] !== null) ? f(arr[i]) : '');
   const lines = [head.join(',')];
   S.log.forEach(r => {
-    const net = r.norm.map((v, i) => v - darkNorm(r.gain, r.nCh)[i]);
-    lines.push([r.time, r.type, r.source, r.sampleId, r.bag, r.gap, r.notes, r.frames, r.gain, r.gainMode || '', r.tint.toFixed(2), r.nCh,
-      r.blankId || '', r.darkId || '', r.id, (r.flags || []).join('; '),
+    const dn = darkNorm(r), net = r.norm.map((v, i) => v - dn[i]);
+    lines.push([r.time, r.type, r.source, r.sampleId, r.bag, r.gap, r.notes, r.frames, r.gain, r.gainMode || '',
+      r.atime, r.astep, r.tint.toFixed(2), r.fs, r.led === null ? '' : r.led, r.blankId || '', r.darkId || '', r.id, (r.flags || []).join('; '),
       ...pad(r.raw, v => v.toFixed(1)), ...pad(r.cv, v => v.toFixed(3)), ...pad(r.norm, v => v.toPrecision(6)),
       ...pad(net, v => v.toPrecision(6)),
       ...pad(r.abs && r.abs.map(x => x.T), v => v.toPrecision(6)), ...pad(r.abs && r.abs.map(x => x.A), v => v.toFixed(5)),
-      '', '', '', ''].map(q).join(','));
+      '', '', '', ''].map(csvQ).join(','));
   });
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-  const a = document.createElement('a');
   const d = new Date(), p = x => String(x).padStart(2, '0');
-  a.href = URL.createObjectURL(blob);
-  a.download = `spirulina_photometer_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  download(`spirulina_photometer_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.csv`, lines.join('\n'));
 }
 
 /* ============================================================
-   Demo mode (?demo): emulates the ESP32 firmware, including its auto-gain,
-   its gain-label quirk and the label-after-adjust timing.
+   Demo mode (?demo): emulates firmware v4 — gain, integration, LED driver, auto-gain,
+   full scale, and a noise model where shot noise depends on the light collected.
    ============================================================ */
 const DEMO = {
-  led: true, content: 'culture', dens: 0.8, send10: true, gainIdx: 9, timer: null, auto: true, pending: null,
-  // amber 590 nm LED: F7/F8 carry LED tail + filter leak (~3% and ~0.3% of F6) + culture fluorescence
+  content: 'culture', dens: 0.8, gainIdx: 9, auto: true, atime: 100, astep: 999, led: 20, pending: [], timer: null,
+  // counts per 281 ms at 1x gain with the LED at 20 mA (rough shapes)
   base590: [1, 1, 1, 2, 600, 3200, 95, 9.5, 4200, 3],
-  // white LED + clamp, counts per integration at 1x gain (rough shape)
   base: [260, 3400, 1900, 2600, 3500, 3100, 2400, 1150, 9000, 60],
   base850: [2, 2, 2, 2, 2, 2, 3, 6, 2600, 5200],
-  // absorbance per g/L for a 3 mm gap (from the simulation): F1..F8, Clear, NIR
-  kA: [0.96, 0.97, 0.88, 0.76, 0.62, 0.66, 0.74, 0.63, 0.72, 0.36],
+  kA: [0.96, 0.97, 0.88, 0.76, 0.62, 0.66, 0.74, 0.63, 0.72, 0.36],      // absorbance per g/L, 3 mm gap
   dark: [0.6, 0.5, 0.5, 0.5, 0.5, 0.5, 0.6, 0.7, 1.0, 0.8],
-  kInk: [0.62, 0.62, 0.61, 0.61, 0.60, 0.60, 0.59, 0.59, 0.60, 0.57],     // near-flat absorber
-  kMilk: [0.55, 0.50, 0.46, 0.42, 0.39, 0.36, 0.34, 0.31, 0.38, 0.24],   // scattering, falls with wavelength
+  kInk: [0.62, 0.62, 0.61, 0.61, 0.60, 0.60, 0.59, 0.59, 0.60, 0.57],
+  kMilk: [0.55, 0.50, 0.46, 0.42, 0.39, 0.36, 0.34, 0.31, 0.38, 0.24],
 };
-function demoCommand(cmd) {               // same parser as the firmware's RxCallbacks
-  const c = cmd.trim().toUpperCase(); if (!c.startsWith('G:')) return;
-  const arg = c.slice(2);
-  if (arg === 'AUTO' || arg === 'A') DEMO.pending = { auto: true };
-  else if (/^\d+$/.test(arg) && +arg >= 0 && +arg < GAINS.length) DEMO.pending = { auto: false, idx: +arg };
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function demoCommand(cmd) { DEMO.pending.push(cmd.trim().toUpperCase()); }
+function demoApply() {                     // same rules as the firmware's parseCommand(), applied between frames
+  DEMO.pending.forEach(c => {
+    if (c[1] !== ':') return;
+    const k = c[0], arg = c.slice(2);
+    if (k === 'G') {
+      if (arg === 'AUTO' || arg === 'A') DEMO.auto = true;
+      else if (/^\d+$/.test(arg) && +arg < GAINS.length) { DEMO.auto = false; DEMO.gainIdx = +arg; }
+    } else if (k === 'T') {
+      const m = arg.match(/^(\d+),(\d+)$/);
+      if (m && +m[1] <= 255 && +m[2] <= 65534 && (+m[1] || +m[2])) { DEMO.atime = +m[1]; DEMO.astep = +m[2]; }
+    } else if (k === 'L' && /^\d+$/.test(arg) && +arg <= 258) {
+      let v = +arg; if (v > 0) { v = Math.max(4, v); v -= (v - 4) % 2; } DEMO.led = v;
+    }
+  });
+  DEMO.pending = [];
 }
 function demoTick() {
-  if (DEMO.pending) {                     // applied between measurements, like applyCommand()
-    DEMO.auto = DEMO.pending.auto; if (!DEMO.auto) DEMO.gainIdx = DEMO.pending.idx; DEMO.pending = null;
-  }
-  const g = GAINS[DEMO.gainIdx];
+  demoApply();
+  const g = GAINS[DEMO.gainIdx], t = tintOf(DEMO.atime, DEMO.astep), fs = fsOf(DEMO.atime, DEMO.astep);
   const src = source();
   const spec = src === '850 nm' ? DEMO.base850 : src.startsWith('590') ? DEMO.base590 : DEMO.base;
-  const fluo = (src.startsWith('590') && DEMO.led && DEMO.content === 'culture') ? 3200 * 0.0012 * (1 - Math.pow(10, -0.6 * DEMO.dens)) : 0;
+  const ledScale = DEMO.led / 20;
+  const kk = { culture: DEMO.kA, ink: DEMO.kInk, milk: DEMO.kMilk }[DEMO.content];
+  const fluo = (src.startsWith('590') && DEMO.content === 'culture') ? ledScale * 3200 * 0.0012 * (1 - Math.pow(10, -0.6 * DEMO.dens)) : 0;
+  const common = 1 + 0.0015 * Math.sqrt(281 / t) * gauss();        // bubbles / LED flicker, averaged by long integration
   const readings = spec.map((b, i) => {
-    let light = DEMO.led ? b : 0;
-    const kk = { culture: DEMO.kA, ink: DEMO.kInk, milk: DEMO.kMilk }[DEMO.content];
-    if (DEMO.led && kk) light *= Math.pow(10, -kk[i] * DEMO.dens);
+    let light = b * ledScale;
+    if (light && kk) light *= Math.pow(10, -kk[i] * DEMO.dens);
     if (i === 7) light += fluo; if (i === 6) light += 0.35 * fluo;
-    const mean = (light + DEMO.dark[i]) * g;
-    const noisy = mean + (Math.random() * 2 - 1) * Math.sqrt(0.1 * mean + 25) * 1.7;
-    return Math.max(0, Math.min(65535, Math.round(noisy)));
+    light *= common * (1 + 0.001 * Math.sqrt(281 / t) * gauss());
+    const mean = g * (light + DEMO.dark[i]) / 281 * t + 1.5;
+    const sd = Math.sqrt(g * 0.0011 * mean + (0.8 + 0.03 * g) ** 2);   // shot noise grows with gain at equal counts
+    return Math.max(0, Math.min(fs, Math.round(mean + sd * gauss())));
   });
-  // original firmware: max of F1-F8; recommended patch: max over every channel it sends
-  const maxVal = Math.max(...(DEMO.send10 ? readings : readings.slice(0, 8)));
-  const label = fmtGain(GAINS[DEMO.gainIdx]);                 // v3: label = gain these counts were measured at
+  const payload = readings.join(',') + `,${fmtGain(g)},${DEMO.auto ? 'A' : 'M'},${DEMO.atime},${DEMO.astep},${DEMO.led}`;
   if (DEMO.auto) {
-    if (maxVal > 60000 && DEMO.gainIdx > 0) DEMO.gainIdx--;
-    else if (maxVal < 2000 && DEMO.gainIdx < 10) DEMO.gainIdx++;
+    const maxVal = Math.max(...readings);
+    if (maxVal > fs * SAT_FRAC && DEMO.gainIdx > 0) DEMO.gainIdx--;
+    else if (maxVal < fs * 0.03 && DEMO.gainIdx < GAINS.length - 1) DEMO.gainIdx++;
   }
-  const vals = DEMO.send10 ? readings : readings.slice(0, 8);
-  const payload = vals.join(',') + ',' + label + ',' + (DEMO.auto ? 'A' : 'M');
-  const bytes = new TextEncoder().encode(payload);
-  onNotify(new DataView(bytes.buffer));
+  onNotify(new DataView(new TextEncoder().encode(payload).buffer));
+  DEMO.timer = setTimeout(demoTick, Math.max(120, estPeriod(tintOf(DEMO.atime, DEMO.astep))));
 }
 function startDemo() {
   S.demo = true;
   $('demoPanel').hidden = false;
-  $('conBtn').onclick = () => { if (!DEMO.timer) { DEMO.timer = setInterval(demoTick, 350); setLink(true); } };
-  $('dLed').onclick = () => { DEMO.led = !DEMO.led; $('dLed').textContent = 'LED: ' + (DEMO.led ? 'ON' : 'OFF'); };
+  $('conBtn').onclick = () => { if (!DEMO.timer) { setLink(true); demoTick(); } };
   $('dContent').onchange = e => DEMO.content = e.target.value;
   $('dDens').oninput = e => { DEMO.dens = parseFloat(e.target.value); $('dDensV').textContent = DEMO.dens.toFixed(2) + ' g/L'; };
-  $('d10').onchange = e => DEMO.send10 = e.target.checked;
 }
 
 /* ============================================================
@@ -1143,18 +1329,17 @@ $('conBtn').onclick = connect;
 $('bDark').onclick = () => startCapture('DARK');
 $('bBlank').onclick = () => startCapture('BLANK');
 $('bSample').onclick = () => startCapture('SAMPLE');
+$('bCancel').onclick = () => abortCapture('Capture cancelled.');
 $('bExport').onclick = exportCSV;
 $('bClear').onclick = () => {
-  if (!confirm('Delete all captures, blanks and darks stored in this browser?')) return;
-  S.log = []; S.darks = {}; S.blanks = {}; S.lastSample = null; save(); renderRefs(); renderLog(); renderResult(); note('Log cleared.');
+  if (!confirm('Delete all captures (including darks and blanks) stored in this browser?')) return;
+  S.log = []; S.lastSample = null; save(); renderRefs(); renderLog(); renderResult(); note('Log cleared.');
 };
 $('logTable').addEventListener('click', e => {
   const id = e.target.dataset && e.target.dataset.del; if (!id) return;
   const r = S.log.find(x => x.id === id);
   if (!r || !confirm(`Delete this ${r.type.toLowerCase()} capture?`)) return;
   S.log = S.log.filter(x => x.id !== id);
-  Object.keys(S.darks).forEach(k => { if (S.darks[k].id === id) delete S.darks[k]; });
-  Object.keys(S.blanks).forEach(k => { if (S.blanks[k].id === id) delete S.blanks[k]; });
   if (S.lastSample && S.lastSample.id === id) S.lastSample = [...S.log].reverse().find(x => x.type === 'SAMPLE') || null;
   save(); renderRefs(); renderLog(); renderResult();
 });
@@ -1164,12 +1349,13 @@ $('viewSeg').addEventListener('click', e => {
   [...$('viewSeg').children].forEach(b => b.classList.toggle('on', b.dataset.v === v));
   renderLive(S.last);
 });
-$('src').onchange = () => { $('srcOtherWrap').hidden = $('src').value !== 'Other'; renderRefs(); renderLive(S.last);
-  fillFluoSelects(true); flResetAvg(); FL.trend = []; renderFluoRef(); };
-$('srcOther').oninput = () => { renderRefs(); };
-['sATIME', 'sASTEP'].forEach(id => $(id).oninput = () => $('tintHint').textContent = `Integration time ≈ ${tintMs().toFixed(1)} ms per channel group.`);
-$('tintHint').textContent = `Integration time ≈ ${tintMs().toFixed(1)} ms per channel group.`;
+$('src').onchange = () => {
+  $('srcOtherWrap').hidden = $('src').value !== 'Other'; renderRefs(); renderLive(S.last);
+  fillFluoSelects(true); flResetAvg(); FL.trend = []; renderFluoRef();
+};
+$('srcOther').oninput = renderRefs;
 
+// sensor controls
 $('modeSeg').addEventListener('click', e => {
   const m = e.target.dataset.m; if (!m || e.target.disabled) return;
   const idx = parseInt($('gSel').value, 10);
@@ -1178,23 +1364,61 @@ $('modeSeg').addEventListener('click', e => {
 $('gSel').onchange = () => requestGain('M', parseInt($('gSel').value, 10));
 $('gDown').onclick = () => requestGain('M', parseInt($('gSel').value, 10) - 1);
 $('gUp').onclick = () => requestGain('M', parseInt($('gSel').value, 10) + 1);
+$('tSel').onchange = () => {
+  const v = $('tSel').value;
+  if (v === 'custom') { S.tCustom = true; renderSensorUI(); return; }
+  S.tCustom = false; S.tDirty = false;
+  const { atime, astep } = stepsFor(+v);
+  requestTint(atime, astep);
+};
+['tAt', 'tAs'].forEach(id => $(id).oninput = () => { S.tDirty = true; renderSensorUI(); });
+$('tApply').onclick = () => {
+  const at = Math.round(num($('tAt').value, -1)), as = Math.round(num($('tAs').value, -1));
+  if (!(at >= 0 && at <= 255 && as >= 0 && as <= 65534) || (at === 0 && as === 0)) { S.sensorMsg = 'ATIME 0–255, ASTEP 0–65534, not both 0.'; renderSensorUI(); return; }
+  if (tintOf(at, as) > TINT_MAX_MS) { S.sensorMsg = `Longest allowed here: ${TINT_MAX_MS / 1000} s per pass.`; renderSensorUI(); return; }
+  S.tDirty = false; requestTint(at, as);
+};
+$('ledSeg').addEventListener('click', e => {
+  const l = e.target.dataset.l; if (!l || e.target.disabled) return;
+  requestLed(l === 'on' ? evenMa() : 0);
+});
+$('ledMa').onchange = () => {
+  $('ledMa').value = evenMa(); savePrefs();
+  const cur = S.pend.led ? S.pend.led.mA : (S.last && S.last.led);
+  if (cur > 0) requestLed(evenMa());
+};
+$('ledAuto').onchange = savePrefs;
+
+// ratio + fluorescence
 ['rA', 'rB'].forEach(id => $(id).onchange = ratioChanged);
+$('rDark').onchange = ratioChanged;
+$('rReset').onclick = ratioChanged;
+$('rSwap').onclick = () => { const a = $('rA').value; $('rA').value = $('rB').value; $('rB').value = a; ratioChanged(); };
 $('fEx').onchange = () => { flResetAvg(); FL.trend = []; renderFluoRef(); };
 $('fEm').onchange = () => { flResetAvg(); FL.trend = []; renderFluoRef(); };
 $('fSetRef').onclick = startFluoRef;
-$('fReset').onclick = () => { flResetAvg(); };   // keeps the trend: it is the time course you want to see
+$('fReset').onclick = flResetAvg;   // keeps the trend: it is the time course you want to see
 $('fSave').onclick = saveFluoReading;
 $('fExport').onclick = exportFluo;
 $('fSaved').addEventListener('click', e => {
   const id = e.target.dataset && e.target.dataset.fdel; if (!id) return;
   FL.saved = FL.saved.filter(r => r.id !== id); flSave(); renderFluoSaved();
 });
-$('rDark').onchange = ratioChanged;
-$('rReset').onclick = ratioChanged;
-$('rSwap').onclick = () => { const a = $('rA').value; $('rA').value = $('rB').value; $('rB').value = a; ratioChanged(); };
 
-load(); flLoad(); buildLiveBars(); renderRefs(); renderLog(); renderResult(); updateButtons(); renderGainUI();
-fillFluoSelects(true); renderFluoRef(); renderFluoSaved(); $('fSetRef').disabled = true;
+/* ============================================================
+   Init
+   ============================================================ */
+load(); flLoad();
+const PREFS = loadPrefs();
+if (PREFS.ledMa) $('ledMa').value = PREFS.ledMa;
+$('ledAuto').checked = !!PREFS.ledAuto;
+$('gSel').innerHTML = GAINS.map((g, i) => `<option value="${i}">${fmtGain(g)}</option>`).join('');
+$('tSel').innerHTML = TINT_PRESETS.map(p => `<option value="${p}">${fmtMs(p)}${p === 281 ? ' (default)' : ''}</option>`).join('') +
+  '<option value="custom">Custom (ATIME / ASTEP)</option>';
+makeBars($('liveBars'), NCH, 'L');
+fillRatioSelects(PREFS.ratio); fillFluoSelects(true);
+renderRefs(); renderLog(); renderResult(); updateButtons(); renderSensorUI();
+renderFluoRef(); renderFluoSaved(); $('fSetRef').disabled = true;
 if (new URLSearchParams(location.search).has('demo')) startDemo();
 </script>
 </body>
