@@ -95,6 +95,17 @@
   th:first-child, td:first-child { text-align: left; }
   td.flag { color: var(--warn); text-align: left; white-space: normal; min-width: 120px; }
   td.dim { color: var(--muted); }
+  td.neg, .col .val.neg { color: var(--warn); font-weight: 700; }
+  td.sat { color: var(--bad); }
+  .bar.negbar { background: repeating-linear-gradient(135deg, var(--warn) 0 3px, transparent 3px 7px) !important;
+    box-shadow: inset 0 0 0 1px var(--warn); }
+  .logt tr.pick { cursor: pointer; }
+  .logt tr.pick:hover td { background: var(--panel2); }
+  .logt tr.sel td { background: #1d2a3a; }
+  .logt th.ch { text-align: right; }
+  .logt th.ch span { display: block; font-weight: 400; color: var(--muted); font-size: 10px; }
+  .negnote { margin-top: 10px; padding: 9px 11px; border-radius: 8px; background: #3d3112; color: #f0c766; font-size: 12px; }
+  .negnote b { color: #ffd77a; }
   .tag { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; }
   .tag.DARK { background: #2a2a2d; color: #bdbdb8; }
   .tag.BLANK { background: #16304d; color: #9cc6f2; }
@@ -332,21 +343,29 @@
 
 <section id="resultSec" hidden>
   <div class="row-between">
-    <h2>Last sample</h2>
-    <span class="hint" style="margin:0" id="resTitle"></span>
+    <h2 id="resH">Last sample</h2>
+    <span class="ctrl"><span class="hint" style="margin:0" id="resTitle"></span>
+      <button class="small" id="resLatest" hidden>Show latest</button></span>
   </div>
   <div class="bars" id="resBars"></div>
   <div class="tablewrap" style="margin-top:12px">
     <table id="resTable"></table>
   </div>
+  <div class="negnote" id="resNeg" hidden></div>
 </section>
 
 <section>
   <div class="row-between">
     <h2>Log</h2>
-    <span class="hint" style="margin:0" id="logCount">0 captures</span>
+    <div class="seg" id="logSeg">
+      <button data-lv="A" class="on">Absorbance</button>
+      <button data-lv="raw">Raw</button>
+      <button data-lv="norm">Counts / ms</button>
+      <button data-lv="cv">CV %</button>
+    </div>
   </div>
-  <div class="tablewrap"><table id="logTable"></table></div>
+  <div class="tablewrap"><table id="logTable" class="logt"></table></div>
+  <div class="hint" id="logHint"></div>
   <div class="actions">
     <button id="bExport" class="primary">Export CSV</button>
     <button id="bClear">Clear log</button>
@@ -438,7 +457,7 @@ const S = {
   connected: false, device: null, demo: false, rxChar: null, fw: null,
   frames: 0, bad: 0,
   last: null, sig: '', period: null, periodKey: '', lastT: 0,
-  view: 'counts', noise: [],
+  view: 'counts', noise: [], logView: 'A', shownId: null,
   capture: null, log: [], lastSample: null,
   pend: { gain: null, tint: null, led: null }, sensorMsg: '',
   tCustom: false, tDirty: false,
@@ -447,7 +466,11 @@ const S = {
 
 const $ = id => document.getElementById(id);
 function num(v, d) { const x = parseFloat(v); return isFinite(x) ? x : d; }
-function fmt(x, d = 3) { return (x === null || x === undefined || !isFinite(x)) ? '–' : x.toFixed(d); }
+function fmt(x, d = 3) {
+  if (x === null || x === undefined || !isFinite(x)) return '–';
+  const s = x.toFixed(d);
+  return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
+}
 function fmtGain(g) { return g === 0.5 ? '0.5x' : g + 'x'; }
 function fmtMs(ms) {
   if (ms === null || ms === undefined || !isFinite(ms)) return '–';
@@ -494,7 +517,7 @@ function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY) ||
 function savePrefs() {
   try {
     localStorage.setItem(PREF_KEY, JSON.stringify({
-      ledMa: $('ledMa').value, ledAuto: $('ledAuto').checked, ratio: { a: $('rA').value, b: $('rB').value },
+      ledMa: $('ledMa').value, ledAuto: $('ledAuto').checked, logView: S.logView, ratio: { a: $('rA').value, b: $('rB').value },
     }));
   } catch (e) {}
 }
@@ -738,6 +761,46 @@ function absorbance(sampleNorm, sampleCfg, blank) {
     return { T: s / b, A: -Math.log10(s / b) };
   });
 }
+/* Negative absorbance: more light than in the blank. Level 2 = beyond noise (3σ and NEG_MIN), 1 = within noise. */
+const NEG_MIN = 0.003;
+// relative noise of the dark-subtracted mean of a capture, per channel
+function relNoise(rec) {
+  if (!rec || !rec.sd) return Array(NCH).fill(0);
+  const dn = darkNorm(rec), k = Math.sqrt(rec.frames || 1);
+  return Array.from({ length: NCH }, (_, i) => {
+    const net = (rec.norm[i] - dn[i]) * rec.gain * rec.tint;
+    return rec.sd[i] !== undefined && net > 0 ? rec.sd[i] / net / k : 0;
+  });
+}
+const aSigma = (relS, relB) => 0.4343 * Math.sqrt(relS * relS + relB * relB);
+function negLevel(A, sigma) {
+  if (A === null || A === undefined || !isFinite(A) || A >= 0) return 0;
+  return -A > Math.max(3 * sigma, NEG_MIN) ? 2 : 1;
+}
+function recNeg(r) {
+  if (r.type !== 'SAMPLE' || !r.abs) return [];
+  const b = S.log.find(x => x.id === r.blankId);
+  const rs = relNoise(r), rb = relNoise(b);
+  return r.abs.map((x, i) => {
+    const lv = negLevel(x.A, aSigma(rs[i], rb[i]));
+    return { lv, sigma: aSigma(rs[i], rb[i]) };
+  });
+}
+const negNames = r => recNeg(r).map((x, i) => x.lv === 2 ? CHANNELS[i].k : null).filter(Boolean);
+function recFlags(r) {
+  const f = (r.flags || []).slice(), neg = negNames(r);
+  if (neg.length) f.push(`A<0 in ${neg.join(' ')} (more light than blank: fluorescence?)`);
+  return f;
+}
+const NEG_TIP = 'Negative absorbance beyond noise: more light reached the sensor than with the blank at this wavelength.';
+function channelSD(buf) {
+  const k = buf.length;
+  return Array.from({ length: NCH }, (_, i) => {
+    if (k < 2) return null;
+    const xs = buf.map(f => f[i]), m = xs.reduce((a, b) => a + b, 0) / k;
+    return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (k - 1));
+  });
+}
 function channelCV(buf) {
   const k = buf.length;
   return Array.from({ length: NCH }, (_, i) => {
@@ -860,7 +923,7 @@ function finishCapture() {
   if (noisy.length && c.type !== 'DARK') flags.push(`CV>${cvWarn}% in ${noisy.join(' ')}`);
   rec.flags = flags;
   S.log.push(rec);
-  if (c.type === 'SAMPLE') S.lastSample = rec;
+  if (c.type === 'SAMPLE') { S.lastSample = rec; S.shownId = null; }
   save();
   progress(1);
   note(`${c.type.toLowerCase()} saved (${k} frames at ${cfgLabel(cfg)})${flags.length ? ' · ' + flags.join(' · ') : ''}`);
@@ -884,20 +947,26 @@ function makeBars(el, n, id) {
       <div class="track"><div class="bar" id="${id}b${i}" style="height:1%;background:${ch.col}"></div></div>
       <div class="lab"><b>${ch.k}</b><br>${ch.wl}</div></div>`).join('');
 }
-function setBars(id, values, labels, max) {
+// neg: optional per-channel level from negLevel(); level-2 negatives are drawn as a striped bar of |A|
+function setBars(id, values, labels, max, neg) {
   values.forEach((v, i) => {
     const b = $(id + 'b' + i), t = $(id + 'v' + i); if (!b) return;
-    const h = (v === null || !isFinite(v) || max <= 0) ? 0 : Math.max(0, Math.min(100, 100 * v / max));
+    const isNeg = !!(neg && neg[i] === 2);
+    const mag = isNeg ? -v : v;
+    const h = (v === null || !isFinite(v) || max <= 0) ? 0 : Math.max(0, Math.min(100, 100 * mag / max));
     b.style.height = Math.max(h, 1) + '%';
     b.style.opacity = v === null ? .25 : 1;
-    t.textContent = labels[i];
+    b.classList.toggle('negbar', isNeg);
+    t.classList.toggle('neg', isNeg);
+    t.title = isNeg ? NEG_TIP : '';
+    t.textContent = labels[i] + (isNeg ? ' ⚠' : '');
   });
 }
 
 let liveMax = 1;
 function renderLive(fr) {
   if (!fr) return;
-  let values, labels, max, hint;
+  let values, labels, max, hint, neg = null;
   if (S.view === 'abs') {
     const src = source(), fb = findBlank(src, fr);
     if (!fb) {
@@ -906,9 +975,18 @@ function renderLive(fr) {
     } else {
       values = absorbance(fr.vals.map(v => normOf(v, fr)), fr, fb.rec)
         .map((x, i) => fr.chSat[i] || (fb.rec.satCh && fb.rec.satCh[i]) ? null : x.A);
-      labels = values.map(x => fmt(x, 2));
-      max = Math.max(1, ...values.filter(x => x !== null && isFinite(x)));
-      hint = `Single-frame absorbance vs the ${src} blank (${cfgLabel(fb.rec)}${fb.exact ? '' : ', other settings'}). Useful to watch bubbles or settling.`;
+      // single-frame noise from the last frames at these settings (needs 3), plus the blank's noise
+      const sd = S.noise.length >= 3 ? channelSD(S.noise) : null, rb = relNoise(fb.rec), dn = darkNorm(fr);
+      neg = values.map((A, i) => {
+        const net = (normOf(fr.vals[i], fr) - dn[i]) * fr.gain * fr.tint;
+        const rs = sd && sd[i] !== null && net > 0 ? sd[i] / net : 0;
+        return sd ? negLevel(A, aSigma(rs, rb[i])) : 0;
+      });
+      labels = values.map(x => fmt(x, x !== null && Math.abs(x) < 0.1 ? 3 : 2));
+      max = Math.max(1, ...values.filter(x => x !== null && isFinite(x)).map(Math.abs));
+      const nn = neg.map((l, i) => l === 2 ? CHANNELS[i].k : null).filter(Boolean);
+      hint = `Single-frame absorbance vs the ${src} blank (${cfgLabel(fb.rec)}${fb.exact ? '' : ', other settings'}). Useful to watch bubbles or settling.` +
+        (nn.length ? ` ⚠ Negative beyond noise in ${nn.join(' ')}: more light than the blank there.` : '');
     }
   } else if (S.view === 'noise') {
     const n = S.noise.length;
@@ -930,7 +1008,7 @@ function renderLive(fr) {
       hint = 'Counts per ms at 1x gain (raw ÷ gain ÷ integration time): comparable across settings.';
     }
   }
-  setBars('L', values, labels, max);
+  setBars('L', values, labels, max, neg);
   $('liveHint').textContent = hint;
 }
 
@@ -942,17 +1020,25 @@ function renderRefs() {
   $('refBlank').innerHTML = b ? `Blank (${src}): <b>${cfgLabel(b.rec)}</b> · ${timeStr(b.rec.time)}${match(b)}` : `Blank (${src}): <b>none</b>`;
 }
 
+function shownSample() {
+  return (S.shownId && S.log.find(x => x.id === S.shownId)) || S.lastSample;
+}
 function renderResult() {
-  const r = S.lastSample;
+  const r = shownSample();
   $('resultSec').hidden = !r;
   if (!r) return;
+  const picked = !!S.shownId && r !== S.lastSample;
+  $('resH').textContent = picked ? 'Selected sample' : 'Last sample';
+  $('resLatest').hidden = !picked;
   $('resTitle').textContent = `${r.sampleId || 'unnamed'} · ${r.source} · ${cfgLabel(r)} · ${timeStr(r.time)}`;
   makeBars($('resBars'), r.nCh, 'R');
   const lowBlank = num($('sLow').value, 1000);
   const blank = S.log.find(x => x.id === r.blankId);
+  const neg = recNeg(r);
   const valid = CHANNELS.slice(0, r.nCh).map((_, i) => blank && blank.raw[i] >= lowBlank && r.abs[i].A !== null);
   const A = r.abs.map((x, i) => valid[i] ? x.A : null);
-  setBars('R', A, A.map(x => fmt(x, 3)), Math.max(0.5, ...A.filter(x => x !== null && isFinite(x))));
+  const negLv = neg.map((x, i) => valid[i] ? x.lv : 0);
+  setBars('R', A, A.map(x => fmt(x, 3)), Math.max(0.5, ...A.filter(x => x !== null && isFinite(x)).map(Math.abs)), negLv);
   const rows = CHANNELS.slice(0, r.nCh).map((ch, i) => {
     const why = [];
     if (!blank) why.push('blank deleted');
@@ -961,24 +1047,67 @@ function renderResult() {
     else if (blank && blank.satCh && blank.satCh[i]) why.push('blank saturated');
     if (r.cv[i] !== null && r.cv[i] > num($('sCV').value, 2) && r.raw[i] > 100) why.push('noisy');
     if (r.abs[i].A !== null && r.abs[i].A > 2.5) why.push('A > 2.5: too dense');
+    if (negLv[i] === 2) why.push(`⚠ A < 0 beyond noise (±${neg[i].sigma.toFixed(4)}): more light than blank`);
+    else if (negLv[i] === 1) why.push('slightly < 0, within noise');
+    const aCls = negLv[i] === 2 ? ' class="neg"' : '';
     return `<tr><td>${ch.k} <span class="dim">${ch.wl}</span></td><td>${Math.round(r.raw[i])}</td><td>${fmt(r.cv[i], 2)}</td>
-      <td>${valid[i] ? fmt(r.abs[i].T, 4) : '–'}</td><td>${valid[i] ? fmt(r.abs[i].A, 4) : '–'}</td>
+      <td${aCls}>${valid[i] ? fmt(r.abs[i].T, 4) : '–'}</td><td${aCls}>${valid[i] ? fmt(r.abs[i].A, 4) : '–'}</td>
       <td class="flag">${why.join(', ')}</td></tr>`;
   }).join('');
+  const flags = recFlags(r);
   $('resTable').innerHTML = `<tr><th>Channel</th><th>Raw</th><th>CV %</th><th>T</th><th>A</th><th style="text-align:left">Check</th></tr>${rows}
-    ${r.flags.length ? `<tr><td colspan="6" class="flag">${r.flags.join(' · ')}</td></tr>` : ''}`;
+    ${flags.length ? `<tr><td colspan="6" class="flag">${flags.join(' · ')}</td></tr>` : ''}`;
+  const nn = CHANNELS.filter((_, i) => negLv[i] === 2).map(c => `${c.k} (${c.wl})`);
+  const nNarrow = negLv.slice(0, 8).filter(l => l === 2).length;
+  $('resNeg').hidden = !nn.length;
+  if (nn.length) $('resNeg').innerHTML = `<b>⚠ Negative absorbance in ${nn.join(', ')}.</b> More light reached the sensor than with the blank. ` +
+    (nNarrow >= 6
+      ? `<b>Nearly every channel is negative</b>: that points to the light source, not fluorescence (which only adds light at the red end).
+         The LED is probably brighter than when the blank was taken, or the blank was dimmer (bubble, position, other settings). Retake the blank.`
+      : `With cells this can be <b>fluorescence</b> (chlorophyll emits around 680 nm, so F8 and to a lesser extent F7 and NIR).
+         Rule out the other causes first: the LED is brighter than when the blank was taken (retake the blank), the blank was taken
+         at other settings or in another position, a bubble or the clamp moved, or scattering redirected light onto the sensor.
+         The Fluorescence check below and an ink or milk control tell these apart.`);
 }
 
+const LOG_VIEWS = {
+  A:    { hint: 'Absorbance of each sample vs its blank. ⚠ = negative beyond noise (more light than the blank).' },
+  raw:  { hint: 'Mean raw counts of each capture (red = saturated in at least one frame).' },
+  norm: { hint: 'Counts per ms at 1x gain (raw ÷ gain ÷ integration time), not dark-subtracted: comparable across settings.' },
+  cv:   { hint: 'Frame-to-frame CV (%) of each capture.' },
+};
+function logCell(r, i, neg) {
+  const v = S.logView;
+  if (v === 'A') {
+    if (r.type !== 'SAMPLE' || !r.abs || !r.abs[i] || r.abs[i].A === null) return `<td class="dim">${r.type === 'SAMPLE' ? '–' : ''}</td>`;
+    const lv = neg[i] ? neg[i].lv : 0;
+    return lv === 2 ? `<td class="neg" title="${NEG_TIP}">${fmt(r.abs[i].A, 3)} ⚠</td>` : `<td>${fmt(r.abs[i].A, 3)}</td>`;
+  }
+  if (r.raw[i] === undefined) return '<td class="dim">–</td>';
+  if (v === 'raw') {
+    const sat = r.satCh && r.satCh[i];
+    return `<td${sat ? ' class="sat" title="saturated"' : ''}>${Math.round(r.raw[i])}${sat ? '*' : ''}</td>`;
+  }
+  if (v === 'norm') { const x = r.norm[i]; return `<td>${x >= 100 ? x.toFixed(0) : x.toFixed(2)}</td>`; }
+  return `<td>${fmt(r.cv[i], 2)}</td>`;
+}
 function renderLog() {
-  $('logCount').textContent = `${S.log.length} capture${S.log.length === 1 ? '' : 's'}`;
-  if (!S.log.length) { $('logTable').innerHTML = '<tr><td class="dim">No captures yet.</td></tr>'; return; }
-  const a = (r, i) => r.type === 'SAMPLE' && r.abs && r.abs[i] ? fmt(r.abs[i].A, 3) : '';
-  const rows = [...S.log].reverse().map(r =>
-    `<tr><td>${timeStr(r.time)}</td><td><span class="tag ${r.type}">${r.type}</span></td><td>${r.source || '–'}</td>
-      <td>${r.sampleId || '–'}</td><td>${cfgLabel(r)}</td><td>${r.frames}</td><td>${a(r, 6)}</td><td>${a(r, 7)}</td><td>${a(r, 9)}</td>
-      <td class="flag">${(r.flags || []).join(' · ')}</td><td><button class="small" data-del="${r.id}">✕</button></td></tr>`).join('');
-  $('logTable').innerHTML = `<tr><th>Time</th><th>Type</th><th>Source</th><th>Sample</th><th>Settings</th><th>N</th>
-    <th>A630</th><th>A680</th><th>A NIR</th><th style="text-align:left">Flags</th><th></th></tr>${rows}`;
+  [...$('logSeg').children].forEach(b => b.classList.toggle('on', b.dataset.lv === S.logView));
+  const n = S.log.length;
+  $('logHint').textContent = `${n} capture${n === 1 ? '' : 's'} · ${LOG_VIEWS[S.logView].hint}` + (n ? ' Tap a sample row to show it above.' : '');
+  if (!n) { $('logTable').innerHTML = '<tr><td class="dim">No captures yet.</td></tr>'; return; }
+  const sel = shownSample();
+  const rows = [...S.log].reverse().map(r => {
+    const neg = recNeg(r), flags = recFlags(r), isS = r.type === 'SAMPLE';
+    const cls = [isS ? 'pick' : '', sel && sel.id === r.id ? 'sel' : ''].filter(Boolean).join(' ');
+    return `<tr${cls ? ` class="${cls}"` : ''}${isS ? ` data-show="${r.id}"` : ''}><td>${timeStr(r.time)}</td><td><span class="tag ${r.type}">${r.type}</span></td>
+      <td>${r.source || '–'}</td><td>${r.sampleId || '–'}</td><td>${cfgLabel(r)} · n${r.frames}</td>
+      ${CHANNELS.map((_, i) => logCell(r, i, neg)).join('')}
+      <td class="flag">${flags.join(' · ')}</td><td><button class="small" data-del="${r.id}">✕</button></td></tr>`;
+  }).join('');
+  $('logTable').innerHTML = `<tr><th>Time</th><th>Type</th><th>Source</th><th>Sample</th><th>Settings</th>
+    ${CHANNELS.map(c => `<th class="ch">${c.k}<span>${c.wl}</span></th>`).join('')}
+    <th style="text-align:left">Flags</th><th></th></tr>${rows}`;
 }
 
 /* ============================================================
@@ -1244,7 +1373,7 @@ function exportCSV() {
   S.log.forEach(r => {
     const dn = darkNorm(r), net = r.norm.map((v, i) => v - dn[i]);
     lines.push([r.time, r.type, r.source, r.sampleId, r.bag, r.gap, r.notes, r.frames, r.gain, r.gainMode || '',
-      r.atime, r.astep, r.tint.toFixed(2), r.fs, r.led === null ? '' : r.led, r.blankId || '', r.darkId || '', r.id, (r.flags || []).join('; '),
+      r.atime, r.astep, r.tint.toFixed(2), r.fs, r.led === null ? '' : r.led, r.blankId || '', r.darkId || '', r.id, recFlags(r).join('; '),
       ...pad(r.raw, v => v.toFixed(1)), ...pad(r.cv, v => v.toFixed(3)), ...pad(r.norm, v => v.toPrecision(6)),
       ...pad(net, v => v.toPrecision(6)),
       ...pad(r.abs && r.abs.map(x => x.T), v => v.toPrecision(6)), ...pad(r.abs && r.abs.map(x => x.A), v => v.toFixed(5)),
@@ -1336,13 +1465,26 @@ $('bClear').onclick = () => {
   S.log = []; S.lastSample = null; save(); renderRefs(); renderLog(); renderResult(); note('Log cleared.');
 };
 $('logTable').addEventListener('click', e => {
-  const id = e.target.dataset && e.target.dataset.del; if (!id) return;
+  const id = e.target.dataset && e.target.dataset.del;
+  if (!id) {                                         // a click elsewhere on a sample row shows it above
+    const tr = e.target.closest && e.target.closest('tr[data-show]');
+    if (!tr) return;
+    S.shownId = tr.dataset.show === (S.lastSample && S.lastSample.id) ? null : tr.dataset.show;
+    renderResult(); renderLog();
+    $('resultSec').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   const r = S.log.find(x => x.id === id);
   if (!r || !confirm(`Delete this ${r.type.toLowerCase()} capture?`)) return;
   S.log = S.log.filter(x => x.id !== id);
   if (S.lastSample && S.lastSample.id === id) S.lastSample = [...S.log].reverse().find(x => x.type === 'SAMPLE') || null;
   save(); renderRefs(); renderLog(); renderResult();
 });
+$('logSeg').addEventListener('click', e => {
+  const v = e.target.dataset.lv; if (!v) return;
+  S.logView = v; savePrefs(); renderLog();
+});
+$('resLatest').onclick = () => { S.shownId = null; renderResult(); renderLog(); };
 $('viewSeg').addEventListener('click', e => {
   const v = e.target.dataset.v; if (!v) return;
   S.view = v; liveMax = 1e-9;
@@ -1412,6 +1554,7 @@ load(); flLoad();
 const PREFS = loadPrefs();
 if (PREFS.ledMa) $('ledMa').value = PREFS.ledMa;
 $('ledAuto').checked = !!PREFS.ledAuto;
+if (LOG_VIEWS[PREFS.logView]) S.logView = PREFS.logView;
 $('gSel').innerHTML = GAINS.map((g, i) => `<option value="${i}">${fmtGain(g)}</option>`).join('');
 $('tSel').innerHTML = TINT_PRESETS.map(p => `<option value="${p}">${fmtMs(p)}${p === 281 ? ' (default)' : ''}</option>`).join('') +
   '<option value="custom">Custom (ATIME / ASTEP)</option>';
