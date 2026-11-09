@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Respirometer · bench test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #111213; --panel: #1b1c1e; --panel2: #232427; --line: #2f3034;
+    --text: #e8e8e6; --text2: #a3a39e; --muted: #6f6f6b;
+    --accent: #3a8ee6; --accent-ink: #ffffff;
+    --good: #2fb46e; --warn: #e0a100; --bad: #e5484d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.4;
+         padding: 16px; max-width: 820px; margin: 0 auto; overscroll-behavior: none; }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  h3 { font-size: 12px; margin: 14px 0 6px; color: var(--text2); font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  button { font: inherit; font-weight: 600; border-radius: 10px; padding: 11px 14px; cursor: pointer;
+           background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.small { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .chip .k, .rv .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip .v { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; flex-wrap: wrap; }
+  .seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 12px; border-radius: 7px; color: var(--text2); }
+  .seg button.on { background: var(--bg); color: var(--text); }
+  .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .row-between h2 { margin: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .6px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
+                            border-radius: 8px; padding: 9px 10px; }
+  select.inl { width: auto; padding: 6px 8px; font-size: 12px; }
+  .msg { font-size: 12px; color: var(--text2); margin-top: 6px; min-height: 17px; }
+  .rvals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rvals.three { grid-template-columns: repeat(3, 1fr); }
+  .rvals + .rvals { margin-top: 8px; }
+  .rv { background: var(--panel2); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  .rv .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv .big small { font-size: 12px; font-weight: 600; color: var(--text2); margin-left: 3px; }
+  .rv .sm { font-size: 11px; color: var(--text2); line-height: 1.35; margin-top: 2px; }
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 7px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  td.x { text-align: right; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; background: #2a2a2d; color: #bdbdb8; }
+  .tag.seal { background: #16304d; color: #9cc6f2; } .tag.co2 { background: #3d2e0c; color: #f1c860; }
+  .tag.scrub { background: #173b28; color: #8fdbb0; } .tag.hold { background: #2d2346; color: #c3b2f0; } .tag.open { background: #3d1a1b; color: #f2a0a2; }
+  .demo { border-color: #5a4a12; } .demo h2 { color: var(--warn); }
+  details summary { cursor: pointer; color: var(--text2); font-size: 13px; }
+  details[open] summary { margin-bottom: 8px; }
+  .chart { width: 100%; display: block; margin-top: 4px; }
+  .chart text { font-size: 11px; fill: var(--muted); font-family: inherit; }
+  ol, ul { margin: 6px 0; padding-left: 20px; color: var(--text2); font-size: 13px; }
+  li { margin: 3px 0; }
+  .calc { background: var(--panel2); border-radius: 10px; padding: 10px; margin-top: 10px; }
+  .calc input { background: var(--bg); }
+  .out { font-size: 13px; color: var(--text); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 520px) {
+    body { padding: 12px; }
+    .chips, .rvals, .rvals.three { grid-template-columns: repeat(2, 1fr); }
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div><h1>Respirometer</h1><div class="sub">2× BMP280 + AHT20 · bench test: seal, drift, scrubber</div></div>
+  <button id="conBtn" class="primary">Connect</button>
+</header>
+
+<div class="chips">
+  <div class="chip"><div class="k">Link</div><div class="v bad" id="c-link">Offline</div></div>
+  <div class="chip"><div class="k">Sensors</div><div class="v" id="c-sens">--</div></div>
+  <div class="chip"><div class="k">Chamber</div><div class="v" id="c-ch">Open</div></div>
+  <div class="chip"><div class="k">Frames</div><div class="v" id="c-frames">0</div></div>
+</div>
+
+<section id="demoPanel" class="demo" hidden>
+  <h2>Demo mode: emulated chamber + firmware</h2>
+  <div class="row">
+    <div class="seg" id="dChamber"><button data-v="open" class="on">Open</button><button data-v="sealed">Sealed</button></div>
+    <select id="dLeak" class="inl"><option value="0">No leak</option><option value="7200">Slow leak (τ 2 h)</option><option value="300">Leak (τ 5 min)</option><option value="20">Lid ajar (τ 20 s)</option></select>
+    <select id="dScrub" class="inl"><option value="0">No scrubber</option><option value="240" selected>NaOH sponge (τ 4 min)</option><option value="900">NaOH solution (τ 15 min)</option></select>
+    <select id="dSpeed" class="inl"><option value="1">×4 speed</option><option value="10">×40</option><option value="60">×240</option></select>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <span class="hint" style="margin:0">O₂ uptake</span><input type="range" id="dR" min="0" max="200" step="5" value="0" style="width:110px"><span class="hint" style="margin:0" id="dRv">0 µL/h</span>
+    <span class="hint" style="margin:0">Bath wobble</span><input type="range" id="dWob" min="0" max="0.3" step="0.01" value="0.05" style="width:90px"><span class="hint" style="margin:0" id="dWobv">±0.05 °C</span>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <input id="dMg" type="number" value="10" min="1" max="200" style="width:70px"><button class="small" id="dCO2">Start CO₂ (mg NaHCO₃)</button>
+    <input id="dInj" type="number" value="5" min="0.5" max="50" step="0.5" style="width:70px"><button class="small" id="dInjB">Inject air (mL)</button>
+    <span class="hint" style="margin:0">True chamber gas volume: 250 mL · 85 % CO₂ yield</span>
+  </div>
+</section>
+
+<section>
+  <div class="row-between"><h2>Live</h2><span class="hint" style="margin:0" id="liveTime">–</span></div>
+  <div class="rvals">
+    <div class="rv"><div class="k">P inside</div><div class="big" id="vPin">–</div><div class="sm">Pa · BMP280 in chamber</div></div>
+    <div class="rv"><div class="k">P outside</div><div class="big" id="vPout">–</div><div class="sm">Pa · room reference</div></div>
+    <div class="rv"><div class="k">Inside − outside</div><div class="big" id="vDio">–</div><div class="sm" id="sDio">Pa · take a zero first</div></div>
+    <div class="rv"><div class="k">Frame interval</div><div class="big" id="vInt">–</div><div class="sm" id="sInt">measured on the device clock</div></div>
+  </div>
+  <div class="rvals">
+    <div class="rv"><div class="k">T inside</div><div class="big" id="vTin">–</div><div class="sm" id="sTin">°C · BMP280 / AHT20</div></div>
+    <div class="rv"><div class="k">T outside</div><div class="big" id="vTout">–</div><div class="sm" id="sTout">°C · BMP280 / AHT20</div></div>
+    <div class="rv"><div class="k">RH inside</div><div class="big" id="vRHin">–</div><div class="sm" id="sRHin">% · water vapour</div></div>
+    <div class="rv"><div class="k">RH outside</div><div class="big" id="vRHout">–</div><div class="sm" id="sRHout">% · AHT20</div></div>
+  </div>
+  <div class="hint" id="liveHint">Connect the ESP32 (or open this page with ?demo) to see live readings.</div>
+</section>
+
+<section>
+  <div class="row-between"><h2 id="anTitle">Analysis · whole record</h2><span class="hint" style="margin:0" id="anSub"></span></div>
+  <div class="rvals three">
+    <div class="rv"><div class="k" id="kGas">Gas change</div><div class="big" id="vGas">–</div><div class="sm" id="sGas">dry gas, temperature-corrected</div></div>
+    <div class="rv"><div class="k" id="kRate">Rate · last 10 min</div><div class="big" id="vRate">–</div><div class="sm" id="sRate">negative = gas disappearing (O₂ uptake)</div></div>
+    <div class="rv"><div class="k">Leak check</div><div class="big" id="vLeak">–</div><div class="sm" id="sLeak">mark “Sealed” to start</div></div>
+  </div>
+  <div class="rvals three">
+    <div class="rv"><div class="k">Temperature stability</div><div class="big" id="vTst">–</div><div class="sm" id="sTst">inside, over the rate window</div></div>
+    <div class="rv"><div class="k">Water vapour</div><div class="big" id="vHum">–</div><div class="sm" id="sHum">inside, over the rate window</div></div>
+    <div class="rv"><div class="k">Scrubber test</div><div class="big" id="vScr">–</div><div class="sm" id="sScr">add a “CO₂ started” marker when the reaction begins</div></div>
+  </div>
+  <div class="hint" id="anHint">Gas = (P − water vapour) × T_ref / T. Pressure changes from temperature and humidity are removed, so what is left is gas actually added or removed.</div>
+</section>
+
+<section>
+  <div class="row-between">
+    <h2>Trend</h2>
+    <div class="row">
+      <select id="cSeries" class="inl">
+        <option value="gas">Gas Δ (corrected), Pa</option><option value="vol">Gas Δ, µL</option><option value="pin">P inside Δ (raw), Pa</option>
+        <option value="dio">Inside − outside, Pa</option><option value="tin">T inside, °C</option><option value="rhin">RH inside, %</option>
+        <option value="pout">P outside Δ, Pa</option>
+      </select>
+      <div class="seg" id="cSpan"><button data-s="5">5 m</button><button data-s="30" class="on">30 m</button><button data-s="120">2 h</button><button data-s="0">All</button></div>
+    </div>
+  </div>
+  <svg class="chart" id="chart" viewBox="0 0 800 250" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="row" style="justify-content:space-between">
+    <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2)"><input type="checkbox" id="cOut" checked style="width:auto"> overlay outside pressure Δ (dashed)</label>
+    <span class="hint" style="margin:0" id="cInfo"></span>
+  </div>
+  <div class="hint" id="cHint">Δ values are relative to the “Sealed” marker (or the start of the record).</div>
+</section>
+
+<section>
+  <div class="row-between"><h2>Markers &amp; record</h2><span class="hint" style="margin:0" id="recCount">0 frames</span></div>
+  <div class="row">
+    <button class="small" data-mk="seal">Sealed</button><button class="small" data-mk="scrub">Scrubber in</button>
+    <button class="small" data-mk="co2">CO₂ started</button><button class="small" data-mk="hold">Air injected (hold test)</button><button class="small" data-mk="open">Opened</button>
+  </div>
+  <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input id="mkText" placeholder="custom note, e.g. injected 5 mL"><button class="small" id="mkAdd">Add</button></div>
+  <div class="tablewrap" style="margin-top:8px"><table id="mkTable"></table></div>
+  <h3>Zero offset (both boards open to the room)</h3>
+  <div class="row"><button class="small" id="bZero">Take zero (30 frames)</button><span class="hint" style="margin:0" id="zeroTxt">No zero yet: the two BMP280s can disagree by ~100 Pa.</span></div>
+  <h3>Frame interval</h3>
+  <div class="row"><select id="intSel" class="inl"><option value="500">0.5 s</option><option value="1000" selected>1 s</option><option value="2000">2 s</option><option value="5000">5 s</option><option value="10000">10 s</option></select>
+    <span class="hint" style="margin:0" id="intTxt">Firmware default 1 s, restored on every reconnect.</span></div>
+  <div class="row" style="margin-top:12px"><button id="bExport" class="primary">Export CSV</button><button id="bClear">Clear record</button></div>
+  <div class="msg" id="recMsg"></div>
+</section>
+
+<section>
+  <details>
+    <summary>Settings</summary>
+    <div class="grid2">
+      <div><label for="sVol">Chamber gas volume, mL</label><input id="sVol" type="number" min="1" step="0.1" value="250"></div>
+      <div><label for="sWin">Rate window, min</label><input id="sWin" type="number" min="1" max="240" value="10"></div>
+      <div><label for="sTref">Reference temperature, °C</label><input id="sTref" type="number" step="0.1" value="25"></div>
+      <div><label for="sTsrc">Temperature for P/T</label><select id="sTsrc"><option value="bmp">BMP280 (0.01 °C resolution)</option><option value="aht">AHT20</option><option value="none">None (raw pressure)</option></select></div>
+    </div>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="sDry" checked style="width:auto"> Subtract water vapour (RH × saturation pressure at the AHT20 temperature)</label>
+    <div class="hint">Gas volume = glass volume minus everything inside (scrubber, sponge, vials, sensor board). Measure it with the syringe calculator below. Settings apply to the whole record, so you can change them after a run and re-export.</div>
+  </details>
+</section>
+
+<section>
+  <details>
+    <summary>Calculators</summary>
+    <div class="calc">
+      <h3 style="margin-top:0">CO₂ from sodium bicarbonate</h3>
+      <div class="grid2"><div><label for="kMg">NaHCO₃, mg</label><input id="kMg" type="number" value="10" min="0" step="1"></div><div></div></div>
+      <div class="out" id="kCO2out"></div>
+    </div>
+    <div class="calc">
+      <h3 style="margin-top:0">Chamber volume from a syringe injection</h3>
+      <div class="grid2"><div><label for="kInj">Air injected, mL</label><input id="kInj" type="number" value="5" step="0.1"></div><div><label for="kJump">Corrected jump, Pa</label><input id="kJump" type="number" value="" placeholder="read from the trend"></div></div>
+      <div class="out" id="kVolOut"></div>
+      <button class="small" id="kVolSet" style="margin-top:8px" disabled>Use as chamber volume</button>
+    </div>
+    <div class="calc">
+      <h3 style="margin-top:0">Expected insect signal</h3>
+      <div class="grid2"><div><label for="kMass">Insect mass, mg</label><input id="kMass" type="number" value="50" step="1"></div><div><label for="kSpec">O₂ uptake, µL/(mg·h)</label><input id="kSpec" type="number" value="1" step="0.1"></div></div>
+      <div class="out" id="kInsOut"></div>
+    </div>
+  </details>
+</section>
+
+<section>
+  <details>
+    <summary>How to run today’s test</summary>
+    <ol>
+      <li><b>Warm up.</b> Both boards in the room, chamber open, connected. Wait ~10 min until temperatures stop moving.</li>
+      <li><b>Zero.</b> Press <i>Take zero</i> with both boards open to the same air. This removes the factory offset between the two BMP280s.</li>
+      <li><b>Blank run.</b> Put the chamber in the bath with the scrubber and nothing else, close it, press <i>Sealed</i>. Watch for 20–30 min: <i>Leak check</i> should say sealed, <i>Rate</i> should hover near 0 µL/h. That number is your drift floor: insects must produce more than this.</li>
+      <li><b>Hold test</b> (needs a septum or a syringe port): inject 2–5 mL of air and press <i>Air injected</i>. A sealed chamber keeps the step; a leak lets it decay. The step size also gives you the chamber volume (Calculators). Do it before the insects go in.</li>
+      <li><b>CO₂ test.</b> Start the bicarbonate + citric acid reaction <i>without opening the chamber</i> (tip a vial), press <i>CO₂ started</i>. The gas rises, then the scrubber pulls it back down. Read % removed and the half-time.</li>
+      <li><b>Control.</b> Repeat the CO₂ test with no scrubber. The rise should stay up. If it also falls, the CO₂ is dissolving in the reaction liquid or leaking, not being scrubbed.</li>
+      <li><b>Compare scrubbers</b> (solution vs sponge) with the same mg of bicarbonate. Export CSV after each run.</li>
+    </ol>
+    <div class="hint">Leak check, two ways. Without a hold test it compares wiggles: an open or badly leaking chamber follows room-pressure wiggles (doors, ventilation), a sealed one does not. That only catches fast leaks. A leak that takes minutes to hours to equalise filters the wiggles out, so only the hold test can show it.</div>
+  </details>
+</section>
+
+<script>
+/* ==================== CONFIG ==================== */
+const DEVICE_NAME  = 'Respirometer';
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const TX_UUID      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const RX_UUID      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+/* Frame (firmware v1): MS,P_IN,T_IN,RH_IN,TA_IN,P_OUT,T_OUT,RH_OUT,TA_OUT,STATUS,1x,A  (no newline) */
+const FIELDS = ['ms', 'pin', 'tin', 'rhin', 'tain', 'pout', 'tout', 'rhout', 'taout', 'st'];
+const STORE_KEY = 'respirometer.v1';
+const STORE_MAX = 30000;              // frames kept in localStorage (memory keeps everything)
+const K0 = 273.15;
+const psat = T => 610.94 * Math.exp(17.625 * T / (T + 243.04));   // Pa, over water (Alduchov–Eskridge)
+const MW_NAHCO3 = 84.007, MW_CITRIC = 192.12;
+/* ================================================ */
+
+const S = { connected: false, demo: false, rx: '', rxChar: null, writeChain: Promise.resolve(), short: 0,
+  rec: [], markers: [], zero: null, zeroCap: null, set: { vol: 250, win: 10, tref: 25, tsrc: 'bmp', dry: true },
+  span: 30, series: 'gas', showOut: true, lastMs: null, off: 0, newConn: true, intReq: null, lastStatus: null,
+  dirty: false, renderQueued: false, restored: 0 };
+const $ = id => document.getElementById(id);
+const fin = x => x !== null && x !== undefined && isFinite(x);
+const fmt = (x, d = 1) => fin(x) ? x.toFixed(d) : '–';
+const sgn = (x, d = 1) => fin(x) ? (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d) : '–';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clock = w => new Date(w).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const dur = ms => { const s = Math.round(ms / 1000); return s < 120 ? s + ' s' : s < 7200 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' h'; };
+function cls(el, c) { el.classList.remove('good', 'warn', 'bad'); if (c) el.classList.add(c); }
+
+/* ---------- persistence ---------- */
+function save() {
+  try {
+    const r = S.rec.slice(-STORE_MAX).map(f => [f.t, f.w, f.pin, f.tin, f.rhin, f.tain, f.pout, f.tout, f.rhout, f.taout, f.st]);
+    localStorage.setItem(STORE_KEY, JSON.stringify({ set: S.set, zero: S.zero, markers: S.markers, rec: r }));
+    S.dirty = false;
+  } catch (e) { $('recMsg').textContent = 'Browser storage is full: export the CSV, the record is only in memory now.'; }
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (!d) return;
+    Object.assign(S.set, d.set || {}); S.zero = d.zero || null; S.markers = d.markers || [];
+    S.rec = (d.rec || []).map(a => ({ t: a[0], w: a[1], pin: a[2], tin: a[3], rhin: a[4], tain: a[5], pout: a[6], tout: a[7], rhout: a[8], taout: a[9], st: a[10] }));
+    S.rec.forEach((_, i) => smoothVap(i)); S.restored = S.rec.length;
+  } catch (e) {}
+}
+setInterval(() => { if (S.dirty) save(); }, 20000);
+window.addEventListener('resize', () => queueRender());
+window.addEventListener('pagehide', () => { if (S.dirty) save(); });
+
+/* ---------- BLE ---------- */
+async function connect() {
+  if (!navigator.bluetooth) { alert('Web Bluetooth needs Chrome on Android, Windows, macOS or ChromeOS (not iPhone).'); return; }
+  try {
+    const dev = await navigator.bluetooth.requestDevice({ filters: [{ name: DEVICE_NAME }], optionalServices: [SERVICE_UUID] });
+    dev.addEventListener('gattserverdisconnected', () => { S.rxChar = null; S.intReq = null; setLink(false); });
+    const svc = await (await dev.gatt.connect()).getPrimaryService(SERVICE_UUID);
+    const tx = await svc.getCharacteristic(TX_UUID);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', e => onNotify(new TextDecoder().decode(e.target.value)));
+    try { S.rxChar = await svc.getCharacteristic(RX_UUID); } catch (e) { S.rxChar = null; }
+    setLink(true);
+  } catch (err) { alert('Connection error: ' + err); }
+}
+function setLink(on) {
+  S.connected = on; S.newConn = true; S.rx = '';
+  $('c-link').textContent = on ? 'Live' : 'Offline'; cls($('c-link'), on ? 'good' : 'bad');
+  $('conBtn').textContent = on ? 'Connected' : 'Connect'; $('conBtn').disabled = on;
+  $('intSel').value = '1000'; $('intTxt').textContent = on ? 'Firmware default 1 s, restored on every reconnect.' : 'Connect to change.';
+  updateButtons();
+}
+function sendCmd(cmd) {
+  if (S.demo) { demoCommand(cmd); return Promise.resolve(); }
+  if (!S.rxChar) return Promise.reject(new Error('no command channel'));
+  const data = new TextEncoder().encode(cmd);
+  S.writeChain = S.writeChain.catch(() => {}).then(() => S.rxChar.writeValueWithResponse ? S.rxChar.writeValueWithResponse(data) : S.rxChar.writeValue(data));
+  return S.writeChain;
+}
+
+/* ---------- parsing ---------- */
+const FRAME_RE = /^[-\d.,]+,\d+(\.\d+)?x,[AM]$/;
+function onNotify(text) {
+  S.rx += text;
+  let got = false;
+  const lines = S.rx.split('\n'); S.rx = lines.pop();
+  lines.forEach(l => { if (l.trim()) got = tryFrame(l.trim()) || got; });
+  if (FRAME_RE.test(S.rx.trim())) { got = tryFrame(S.rx.trim()) || got; S.rx = ''; }
+  if (S.rx.length > 400) S.rx = '';
+  if (!got && text.length === 20) S.short++;
+  if (got) S.short = 0;
+}
+function tryFrame(line) {
+  const f = line.split(',').map(s => s.trim());
+  if (f.length !== FIELDS.length + 2 || !/x$/.test(f[FIELDS.length]) || !/^[AM]$/.test(f[FIELDS.length + 1])) return false;
+  const v = f.slice(0, FIELDS.length).map(Number);
+  if (v.some(x => !isFinite(x))) return false;
+  addFrame(v, Date.now());
+  return true;
+}
+function addFrame(v, wall) {
+  const o = {}; FIELDS.forEach((k, i) => o[k] = v[i]);
+  const st = o.st | 0, last = S.rec[S.rec.length - 1];
+  if (S.newConn || S.lastMs === null || o.ms < S.lastMs) {            // new connection or device restart: continue the time axis
+    S.off = last ? (last.t + Math.max(1, wall - last.w)) - o.ms : -o.ms;
+    S.newConn = false;
+  }
+  const dMs = S.lastMs !== null && o.ms > S.lastMs ? o.ms - S.lastMs : null;
+  S.lastMs = o.ms;
+  const t = o.ms + S.off;
+  if (last && t <= last.t) return;
+  const fr = { t, w: wall, st,
+    pin: st & 1 ? o.pin : null, tin: st & 1 ? o.tin : null, rhin: st & 2 ? o.rhin : null, tain: st & 2 ? o.tain : null,
+    pout: st & 4 ? o.pout : null, tout: st & 4 ? o.tout : null, rhout: st & 8 ? o.rhout : null, taout: st & 8 ? o.taout : null };
+  S.rec.push(fr); smoothVap(S.rec.length - 1); S.dirty = true; S.lastStatus = st;
+  if (S.rec.length === 1) updateButtons();
+  if (dMs) { S.dts = (S.dts || []).concat(dMs).slice(-7); checkInterval(); }
+  feedZero(fr);
+  queueRender();
+}
+
+/* ---------- derived quantities ---------- */
+const vap = f => fin(f.rhin) && fin(f.tain) ? f.rhin / 100 * psat(f.tain) : null;
+const VAP_SMOOTH_MS = 60000;   // vapour jitters with the AHT20 temperature (~140 Pa/°C): fit a line over the last 60 s, take its end
+function smoothVap(i) {          // local linear fit, evaluated at the newest point: no lag on trends, ~4× less noise
+  const f = S.rec[i], e0 = vap(f); if (e0 === null) { f.es = null; return; }
+  const xs = [], ys = [];
+  for (let j = i; j >= 0 && S.rec[j].t > f.t - VAP_SMOOTH_MS; j--) { const e = vap(S.rec[j]); if (e !== null) { xs.push((S.rec[j].t - f.t) / 1000); ys.push(e); } }
+  const fit = xs.length >= 8 ? linfit(xs, ys) : null;
+  f.es = fit ? fit.a : e0;       // value of the fitted line at x = 0 (now)
+}
+function gasOf(f) {                                         // dry gas pressure at T_ref (Pa) — proportional to moles of gas
+  if (!fin(f.pin)) return null;
+  let p = f.pin;
+  if (S.set.dry) { const e = f.es !== undefined ? f.es : vap(f); if (e === null) return null; p -= e; }
+  if (S.set.tsrc !== 'none') { const T = S.set.tsrc === 'bmp' ? f.tin : f.tain; if (!fin(T)) return null; p *= (S.set.tref + K0) / (T + K0); }
+  return p;
+}
+const dioOf = f => fin(f.pin) && fin(f.pout) ? f.pin - f.pout - (S.zero ? S.zero.dp : 0) : null;
+const toUL = (dPa, gAbs) => dPa / gAbs * S.set.vol * 1000;          // Pa of gas change -> µL at T_ref and current pressure
+function lowerIdx(t) { let lo = 0, hi = S.rec.length; while (lo < hi) { const m = (lo + hi) >> 1; if (S.rec[m].t < t) lo = m + 1; else hi = m; } return lo; }
+function sealState() {                                       // last Sealed marker not followed by Opened
+  let seal = null;
+  for (const m of S.markers) { if (m.kind === 'seal') seal = m; else if (m.kind === 'open') seal = null; }
+  return seal;
+}
+function baseline() {
+  const seal = sealState(), t0 = seal ? seal.t : (S.rec[0] ? S.rec[0].t : 0);
+  const i0 = lowerIdx(t0), xs = [], ps = [], ins = [];
+  for (let i = i0; i < S.rec.length && xs.length < 5; i++) { const g = gasOf(S.rec[i]); if (g !== null) { xs.push(g); ps.push(S.rec[i].pout); ins.push(S.rec[i].pin); } }
+  const mean = a => { const b = a.filter(fin); return b.length ? b.reduce((x, y) => x + y, 0) / b.length : null; };
+  return { seal, t0, i0, gas: mean(xs), pout: mean(ps), pin: mean(ins) };
+}
+function linfit(xs, ys) {
+  const n = xs.length; if (n < 3) return null;
+  let mx = 0, my = 0; for (let i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; } mx /= n; my /= n;
+  let sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { const dx = xs[i] - mx; sxx += dx * dx; sxy += dx * (ys[i] - my); }
+  if (sxx <= 0) return null;
+  const b = sxy / sxx, a = my - b * mx; let sse = 0;
+  let r0 = null, c1 = 0;
+  for (let i = 0; i < n; i++) { const r = ys[i] - a - b * xs[i]; sse += r * r; if (r0 !== null) c1 += r * r0; r0 = r; }
+  const rho = sse > 0 ? Math.max(0, Math.min(0.98, c1 / sse)) : 0;          // lag-1 autocorrelation of residuals
+  const se = Math.sqrt(sse / (n - 2) / sxx), seAdj = se * Math.sqrt((1 + rho) / (1 - rho));   // effective-n correction
+  return { b, a, se: seAdj, seNaive: se, rho, sd: Math.sqrt(sse / (n - 2)), mx, n };
+}
+
+/* ---------- analysis ---------- */
+function analyse() {
+  const A = {}, n = S.rec.length; if (!n) return A;
+  const B = baseline(), last = S.rec[n - 1]; A.B = B;
+  const gNow = gasOf(last); A.gAbs = gNow || B.gas || 101325;
+  if (fin(gNow) && fin(B.gas)) { A.dGas = gNow - B.gas; A.dVol = toUL(A.dGas, A.gAbs); }
+  // rate over the window (never mixing in the time before the seal)
+  const inj = [...S.markers].reverse().find(m => m.kind === 'hold' && m.t >= B.t0);
+  A.injT = inj && last.t - S.set.win * 60000 < inj.t + 30000 ? inj.t + 30000 : null;
+  const tw = Math.max(last.t - S.set.win * 60000, B.t0, A.injT || 0), iw = lowerIdx(Math.min(tw, last.t));
+  const xs = [], gs = [], ts = [], es = [], tt = [], te = [];
+  for (let i = iw; i < n; i++) {
+    const f = S.rec[i], x = (f.t - last.t) / 3.6e6, g = gasOf(f);
+    if (g !== null) { xs.push(x); gs.push(g); }
+    if (fin(f.tin)) { ts.push(f.tin); tt.push(x); }
+    const e = vap(f); if (e !== null) { es.push(e); te.push(x); }
+  }
+  A.winSpan = last.t - S.rec[iw].t;
+  const fit = linfit(xs, gs); if (fit && A.winSpan > 60000) { A.rate = fit.b; A.rateSe = fit.se; A.rateUL = toUL(fit.b, A.gAbs); A.rateULse = toUL(fit.se, A.gAbs); }
+  const tf = linfit(tt, ts); if (tf) { A.tSlope = tf.b; A.tSd = tf.sd; A.tEquivPa = (A.gAbs / (S.set.tref + K0)) * tf.b; }
+  const ef = linfit(te, es); if (ef) { A.eSlope = ef.b; A.eNow = es[es.length - 1]; }
+  // leak check: detrended inside gas vs detrended outside pressure, since the seal (max 2 h)
+  if (B.seal) {
+    const i0 = lowerIdx(Math.max(B.seal.t, last.t - 7200000)), lx = [], lg = [], lp = [];
+    for (let i = i0; i < n; i++) { const f = S.rec[i], g = gasOf(f); if (g !== null && fin(f.pout)) { lx.push((f.t - last.t) / 3.6e6); lg.push(g); lp.push(f.pout); } }
+    A.leakSpan = lx.length ? (lx[lx.length - 1] - lx[0]) * 3.6e6 : 0;
+    const fg = linfit(lx, lg), fp = linfit(lx, lp);
+    if (fg && fp) {
+      let cov = 0, vp = 0;
+      for (let i = 0; i < lx.length; i++) { const rg = lg[i] - fg.a - fg.b * lx[i], rp = lp[i] - fp.a - fp.b * lx[i]; cov += rg * rp; vp += rp * rp; }
+      A.outSd = Math.sqrt(vp / (lx.length - 2)); A.k = vp > 0 ? cov / vp : null;
+    }
+  }
+  // step tests: CO₂ pulse (scrubber) and air injection (hold / leak test), each after the seal
+  const after = kind => [...S.markers].reverse().find(m => m.kind === kind && (!B.seal || m.t >= B.seal.t));
+  A.co2 = stepAnalysis(after('co2'), B); A.hold = stepAnalysis(after('hold'), B);
+  if (A.injT) A.rateNote = 'restarted after the air injection';
+  return A;
+}
+
+const STEP_KINDS = ['seal', 'co2', 'hold', 'open'];
+function stepAnalysis(mk, B) {             // gas change after a marker, until the next event marker: peak (largest |Δ|), now, half-time, τ
+  if (!mk) return null;
+  const nxt = S.markers.find(m => m.t > mk.t && STEP_KINDS.includes(m.kind));
+  const n = nxt ? lowerIdx(nxt.t) : S.rec.length, ic = lowerIdx(mk.t), pre = [];
+  for (let i = ic - 1; i >= 0 && pre.length < 10 && S.rec[i].t >= B.t0; i--) { const g = gasOf(S.rec[i]); if (g !== null) pre.push(g); }
+  if (!pre.length) return null;
+  const g0 = pre.reduce((a, b) => a + b, 0) / pre.length;
+  let peak = 0, tPeak = null, now = null, tNow = null, tHalf = null;
+  for (let i = ic; i < n; i++) { const g = gasOf(S.rec[i]); if (g === null) continue; const d = g - g0;
+    if (Math.abs(d) > Math.abs(peak)) { peak = d; tPeak = S.rec[i].t; tHalf = null; }
+    if (tHalf === null && peak !== 0 && d / peak <= 0.5) tHalf = S.rec[i].t - tPeak;
+    now = d; tNow = S.rec[i].t; }
+  const r = { peak, now, tPeak, tNow, tHalf, t0: mk.t, ret: peak ? now / peak : null, since: tNow !== null && tPeak !== null ? tNow - tPeak : 0, sinceMk: tNow !== null ? tNow - mk.t : 0 };
+  if (r.ret !== null && r.ret > 0.02 && r.ret < 0.98 && r.since > 0) r.tau = r.since / -Math.log(r.ret);
+  if (tHalf === null && r.tau) r.tHalfEst = r.tau * Math.LN2;
+  return r;
+}
+
+/* ---------- rendering ---------- */
+function queueRender() { if (S.renderQueued) return; S.renderQueued = true; requestAnimationFrame(() => { S.renderQueued = false; render(); }); }
+function render() {
+  const n = S.rec.length, f = S.rec[n - 1];
+  $('c-frames').textContent = n; $('recCount').textContent = `${n} frames${n ? ' · ' + dur(S.rec[n - 1].t - S.rec[0].t) : ''}`;
+  if (f) renderLiveTiles(f);
+  const A = analyse(); renderAnalysis(A); renderChart(A); renderMarkers();
+}
+function renderLiveTiles(f) {
+  const st = S.lastStatus ?? f.st, ok = [st & 1, st & 2, st & 4, st & 8].filter(Boolean).length;
+  $('c-sens').textContent = `${ok}/4 OK`; cls($('c-sens'), ok === 4 ? 'good' : ok >= 2 ? 'warn' : 'bad');
+  const missing = []; if (!(st & 1)) missing.push('BMP280 inside'); if (!(st & 2)) missing.push('AHT20 inside');
+  if (!(st & 4)) missing.push('BMP280 outside'); if (!(st & 8)) missing.push('AHT20 outside');
+  $('liveTime').textContent = S.connected ? 'last frame ' + clock(f.w) : 'record from ' + clock(f.w);
+  $('vPin').textContent = fmt(f.pin, 1); $('vPout').textContent = fmt(f.pout, 1);
+  const d = dioOf(f); $('vDio').textContent = sgn(d, 1);
+  $('sDio').textContent = S.zero ? `Pa · zero applied (${sgn(S.zero.dp, 1)} Pa)` : 'Pa · no zero: includes the sensor offset';
+  $('vTin').textContent = fmt(f.tin, 2); $('sTin').textContent = `°C · BMP280 · AHT20 ${fmt(f.tain, 2)}`;
+  $('vTout').textContent = fmt(f.tout, 2); $('sTout').textContent = `°C · BMP280 · AHT20 ${fmt(f.taout, 2)}`;
+  $('vRHin').textContent = fmt(f.rhin, 1); const e = vap(f); $('sRHin').textContent = `% · vapour ${fmt(e, 0)} Pa`;
+  $('vRHout').textContent = fmt(f.rhout, 1); $('sRHout').textContent = '% · AHT20';
+  const dts = (S.dts || []).slice().sort((a, b) => a - b), med = dts.length ? dts[dts.length >> 1] : null;
+  $('vInt').textContent = med ? (med / 1000).toFixed(med < 1000 ? 2 : 1) + ' s' : '–';
+  let hint = missing.length ? `Missing: ${missing.join(', ')}. Check wiring; the firmware retries every 5 s.` : '';
+  if (S.short > 3) hint = 'Frames arrive cut at 20 bytes: the BLE MTU did not negotiate. Reconnect, or update Chrome.';
+  if (!hint) hint = S.set.dry && !(st & 2) ? '' : 'Inside board: pressure, temperature and humidity of the chamber air. Outside board: the room reference.';
+  $('liveHint').textContent = hint;
+}
+function leakVerdict(A) {
+  const B = A.B, h = A.hold;
+  if (!B || !B.seal) return { v: '–', c: null, chip: 'Open', s: 'press “Sealed” when you close the chamber' };
+  if (h && Math.abs(h.peak) > 3) {                               // hold test: an injected step must stay put
+    if (h.sinceMk < 180000) return { v: 'Holding…', c: 'warn', chip: 'Hold test', s: `step ${sgn(h.peak, 0)} Pa, ${fmt(h.ret * 100, 0)} % kept · judge after 3 min (${dur(h.sinceMk)} so far)` };
+    const pct = h.ret * 100, tau = h.tau ? ` · leak τ ≈ ${dur(h.tau)}` : '';
+    if (h.ret >= 0.95) return { v: 'Holds', c: 'good', chip: 'Sealed', s: `hold test: ${fmt(pct, 0)} % of the ${sgn(h.peak, 0)} Pa step kept after ${dur(h.sinceMk)}${h.ret < 0.99 ? tau : ''}` };
+    return { v: h.ret >= 0.8 ? 'Slow leak' : 'Leaking', c: h.ret >= 0.8 ? 'warn' : 'bad', chip: h.ret >= 0.8 ? 'Slow leak' : 'Leaking',
+      s: `hold test: only ${fmt(pct, 0)} % of the ${sgn(h.peak, 0)} Pa step kept after ${dur(h.sinceMk)}${tau} · check lid and wire port (insects inside also lower it)` };
+  }
+  if (A.k === undefined || A.k === null || A.leakSpan < 180000) return { v: 'Wait', c: 'warn', chip: 'Sealed ?', s: `wiggle check needs 3 min after sealing (${dur(A.leakSpan || 0)} so far)` };
+  if (A.outSd < 3) return { v: 'Wait', c: 'warn', chip: 'Sealed ?', s: `room pressure too steady to judge (wiggle ${fmt(A.outSd, 1)} Pa, need 3). Do the hold test.` };
+  const k = A.k;
+  if (k > 0.6) return { v: 'Leaking', c: 'bad', chip: 'Leaking', s: `inside follows ${fmt(Math.min(1, k) * 100, 0)} % of room-pressure wiggles: open or a big leak` };
+  if (k > 0.2) return { v: 'Leak?', c: 'warn', chip: 'Leak?', s: `inside follows ${fmt(k * 100, 0)} % of room wiggles · re-seat the lid, then do the hold test` };
+  return { v: 'No fast leak', c: 'good', chip: 'Sealed ?', s: `inside ignores room wiggles (${fmt(Math.max(0, k) * 100, 0)} %, σ ${fmt(A.outSd, 1)} Pa). Slow leaks need the hold test.` };
+}
+function renderAnalysis(A) {
+  const B = A.B;
+  $('anTitle').textContent = B && B.seal ? 'Analysis · since sealed' : 'Analysis · whole record';
+  $('anSub').textContent = B && B.seal ? `sealed ${clock(B.seal.w)} · ${dur(S.rec[S.rec.length - 1].t - B.seal.t)} ago` : 'chamber marked open';
+  // chamber chip + leak verdict
+  const L = leakVerdict(A), ch = $('c-ch');
+  if (!B || !B.seal) { ch.textContent = 'Open'; cls(ch, null); }
+  else { ch.textContent = L.chip; cls(ch, L.c); }
+  // gas change
+  $('kGas').textContent = B && B.seal ? 'Gas change since sealed' : 'Gas change since start';
+  $('vGas').innerHTML = fin(A.dGas) ? `${sgn(A.dGas, 1)}<small>Pa</small>` : '–';
+  $('sGas').textContent = fin(A.dVol) ? `≈ ${sgn(A.dVol, 0)} µL of gas at ${S.set.tref} °C in ${S.set.vol} mL` :
+    (S.set.dry ? 'needs the inside BMP280 and AHT20' : 'needs the inside BMP280');
+  // rate
+  $('kRate').textContent = `Rate · last ${S.set.win} min`;
+  if (fin(A.rateUL)) {
+    $('vRate').innerHTML = `${sgn(A.rateUL, A.rateUL > -10 && A.rateUL < 10 ? 1 : 0)}<small>µL/h</small>`;
+    $('sRate').textContent = `± ${fmt(A.rateULse, 1)} µL/h (SE) · ${sgn(A.rate, 1)} Pa/h over ${dur(A.winSpan)}` +
+      (A.rateNote ? ' · ' + A.rateNote : A.rateUL < 0 ? ' · gas disappearing (O₂ uptake)' : A.rateUL > 0 ? ' · gas appearing' : '');
+  } else { $('vRate').textContent = '–'; $('sRate').textContent = 'needs at least 1 min of data'; }
+  // leak
+  const vL = $('vLeak'); vL.textContent = L.v; cls(vL, L.c); $('sLeak').textContent = L.s;
+  // temperature
+  const vT = $('vTst');
+  if (fin(A.tSd)) {
+    vT.innerHTML = `±${fmt(A.tSd, 3)}<small>°C</small>`; cls(vT, A.tSd < 0.02 ? 'good' : A.tSd < 0.1 ? 'warn' : 'bad');
+    $('sTst').textContent = `drift ${sgn(A.tSlope, 2)} °C/h = ${sgn(A.tEquivPa, 0)} Pa/h of raw pressure` +
+      (S.set.tsrc === 'none' ? ' (NOT corrected)' : ' (corrected)') + (A.tSd >= 0.1 ? ' · bath not stable yet' : '');
+  } else { vT.textContent = '–'; cls(vT, null); $('sTst').textContent = 'needs the inside BMP280'; }
+  // humidity
+  if (fin(A.eSlope)) {
+    $('vHum').innerHTML = `${sgn(A.eSlope, 1)}<small>Pa/h</small>`;
+    $('sHum').textContent = `vapour now ${fmt(A.eNow, 0)} Pa · ${S.set.dry ? 'subtracted from the gas' : 'NOT subtracted'} · AHT20 ±2 % RH ≈ ±60 Pa absolute`;
+  } else { $('vHum').textContent = '–'; $('sHum').textContent = 'needs the inside AHT20'; }
+  // scrubber
+  const vS = $('vScr'), c = A.co2;
+  if (!c) { vS.textContent = '–'; cls(vS, null); $('sScr').textContent = 'press “CO₂ started” when the reaction begins'; }
+  else if (!(c.peak > 2)) { vS.textContent = c.peak < -20 ? 'Check' : 'Wait'; cls(vS, 'warn');
+    $('sScr').textContent = c.peak < -20 ? 'gas only fell after the marker: was it pressed after the reaction had already started? Press it just before.' : 'no rise yet since the CO₂ marker'; }
+  else {
+    const rem = Math.max(0, (1 - c.ret) * 100), mL = toUL(c.peak, A.gAbs) / 1000;
+    vS.innerHTML = `${fmt(rem, 0)}<small>% removed</small>`; cls(vS, rem > 90 ? 'good' : rem > 30 ? 'warn' : null);
+    $('sScr').textContent = `peak ${sgn(c.peak, 0)} Pa ≈ ${fmt(mL, 2)} mL CO₂ · ` +
+      (c.tHalf !== null ? `half-time ${dur(c.tHalf)}` : c.tHalfEst ? `half-time ≈ ${dur(c.tHalfEst)} (est.)` : 'not falling yet');
+  }
+}
+
+/* ---------- chart ---------- */
+function seriesVal(f, s, B, gAbs) {
+  switch (s) {
+    case 'gas': { const g = gasOf(f); return g !== null && fin(B.gas) ? g - B.gas : null; }
+    case 'vol': { const g = gasOf(f); return g !== null && fin(B.gas) ? toUL(g - B.gas, gAbs) : null; }
+    case 'pin': return fin(f.pin) && fin(B.pin) ? f.pin - B.pin : null;
+    case 'dio': return dioOf(f);
+    case 'tin': return f.tin; case 'rhin': return f.rhin;
+    case 'pout': return fin(f.pout) && fin(B.pout) ? f.pout - B.pout : null;
+  }
+}
+function renderChart(A) {
+  const svg = $('chart'), n = S.rec.length, W = Math.max(300, Math.round(svg.clientWidth || 800)), H = W < 500 ? 220 : 250, L = 52, R = W - 8, T = 16, Bt = H - 28;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!n) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">No data yet</text>`; $('cInfo').textContent = ''; return; }
+  const last = S.rec[n - 1], t1 = last.t, t0 = S.span ? t1 - S.span * 60000 : S.rec[0].t, i0 = lowerIdx(t0);
+  const s = S.series, overlay = S.showOut && ['gas', 'pin', 'dio'].includes(s);
+  const NB = 400, bins = new Array(NB).fill(null).map(() => ({ s: 0, n: 0, o: 0, on: 0 })), span = Math.max(1, t1 - t0);
+  for (let i = i0; i < n; i++) {
+    const f = S.rec[i], b = Math.min(NB - 1, Math.floor((f.t - t0) / span * NB)), v = seriesVal(f, s, A.B, A.gAbs);
+    if (fin(v)) { bins[b].s += v; bins[b].n++; }
+    if (overlay) { const o = seriesVal(f, 'pout', A.B, A.gAbs); if (fin(o)) { bins[b].o += o; bins[b].on++; } }
+  }
+  const pts = [], ops = [];
+  bins.forEach((b, k) => { const t = t0 + (k + 0.5) / NB * span; if (b.n) pts.push([t, b.s / b.n]); if (b.on) ops.push([t, b.o / b.on]); });
+  const all = pts.map(p => p[1]).concat(ops.map(p => p[1]));
+  if (!all.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">No valid values for this series (check sensors / zero)</text>`; return; }
+  let lo = Math.min(...all), hi = Math.max(...all);
+  const delta = !['tin', 'rhin'].includes(s); if (delta) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  const minSpan = s === 'tin' ? 0.05 : s === 'rhin' ? 0.5 : 2; if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const X = t => L + (t - t0) / span * (R - L), Y = v => Bt - (v - lo) / (hi - lo) * (Bt - T);
+  const dec = hi - lo < 1 ? 3 : hi - lo < 20 ? 2 : hi - lo < 200 ? 1 : 0;
+  const path = p => p.map((q, i) => (i ? 'L' : 'M') + X(q[0]).toFixed(1) + ',' + Y(q[1]).toFixed(1)).join('');
+  let h = `<rect x="${L}" y="${T}" width="${R - L}" height="${Bt - T}" fill="none" stroke="var(--line)"/>`;
+  if (delta && lo < 0 && hi > 0) h += `<line x1="${L}" x2="${R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="${L - 6}" y="${Y(0) + 4}" text-anchor="end">0</text>`;
+  h += `<text x="${L - 6}" y="${T + 10}" text-anchor="end">${(hi).toFixed(dec)}</text><text x="${L - 6}" y="${Bt}" text-anchor="end">${(lo).toFixed(dec)}</text>`;
+  // markers
+  S.markers.forEach(m => { if (m.t < t0 || m.t > t1) return; const x = X(m.t).toFixed(1), col = { seal: '#9cc6f2', co2: '#f1c860', scrub: '#8fdbb0', hold: '#c3b2f0', open: '#f2a0a2' }[m.kind] || '#a3a39e';
+    h += `<line x1="${x}" x2="${x}" y1="${T}" y2="${Bt}" stroke="${col}" stroke-width="1" opacity=".7"/><text x="${+x + 3}" y="${T + 22}" style="fill:${col}">${esc(m.label.slice(0, 16))}</text>`; });
+  if (overlay && ops.length) h += `<path d="${path(ops)}" fill="none" stroke="#8a8a85" stroke-width="1.3" stroke-dasharray="5 4"/>`;
+  h += `<path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+  h += `<text x="${L}" y="${H - 8}">${S.span ? '−' + dur(S.span * 60000) : clock(S.rec[0].w)}</text><text x="${R}" y="${H - 8}" text-anchor="end">now · ${clock(last.w)}</text>`;
+  svg.innerHTML = h;
+  const vals = pts.map(p => p[1]);
+  $('cInfo').textContent = `min ${Math.min(...vals).toFixed(dec)} · max ${Math.max(...vals).toFixed(dec)}`;
+  $('cHint').textContent = { gas: 'Dry, temperature-corrected gas relative to the “Sealed” marker (or start). Flat = nothing added or removed.',
+    vol: 'The same gas change expressed as µL (uses the chamber volume in Settings).', pin: 'Raw inside pressure: includes temperature and humidity effects. Compare with Gas Δ to see what the correction removes.',
+    dio: 'Inside minus outside (zero applied). Open chamber: ~0. Sealed: drifts with weather and with the chamber.',
+    tin: 'BMP280 temperature in the chamber. 0.01 °C ≈ 3.4 Pa of raw pressure.', rhin: 'Relative humidity in the chamber (AHT20).',
+    pout: 'Room pressure change: weather, doors, ventilation. A sealed chamber should not follow it.' }[s];
+}
+
+/* ---------- markers ---------- */
+const MK = { seal: 'Sealed', scrub: 'Scrubber in', co2: 'CO₂ started', hold: 'Air injected', open: 'Opened' };
+function addMarker(kind, label) {
+  const f = S.rec[S.rec.length - 1]; if (!f) return;
+  S.markers.push({ t: f.t, w: f.w, kind, label: label || MK[kind] || 'note' }); S.markers.sort((a, b) => a.t - b.t);
+  S.dirty = true; save(); render();
+}
+function renderMarkers() {
+  const t = $('mkTable');
+  if (!S.markers.length) { t.innerHTML = '<tr><td class="hint" style="border:0">No markers yet. “Sealed” starts the analysis; “Opened” ends it.</td></tr>'; return; }
+  const t0 = S.rec[0] ? S.rec[0].t : 0;
+  t.innerHTML = '<tr><th>Time</th><th>Marker</th><th class="x">Elapsed</th><th></th></tr>' + S.markers.map((m, i) =>
+    `<tr><td>${clock(m.w)}</td><td><span class="tag ${m.kind}">${esc(m.label)}</span></td><td class="x">${dur(m.t - t0)}</td>
+     <td class="x"><button class="small" data-del="${i}" style="padding:2px 8px">✕</button></td></tr>`).join('');
+}
+$('mkTable').onclick = e => { const i = e.target.dataset.del; if (i === undefined) return; S.markers.splice(+i, 1); S.dirty = true; save(); render(); };
+
+/* ---------- zero ---------- */
+function feedZero(f) {
+  const z = S.zeroCap; if (!z) return;
+  if (fin(f.pin) && fin(f.pout)) { z.dp.push(f.pin - f.pout); if (fin(f.tin) && fin(f.tout)) z.dt.push(f.tin - f.tout); if (fin(f.rhin) && fin(f.rhout)) z.drh.push(f.rhin - f.rhout); }
+  $('zeroTxt').textContent = `Averaging ${z.dp.length}/${z.n}…`;
+  if (z.dp.length >= z.n) {
+    const m = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null, sd = a => { const mm = m(a); return Math.sqrt(a.reduce((x, y) => x + (y - mm) ** 2, 0) / (a.length - 1)); };
+    S.zero = { dp: m(z.dp), dpSd: sd(z.dp), dt: m(z.dt), drh: m(z.drh), w: Date.now() }; S.zeroCap = null; S.dirty = true; save(); renderZero(); updateButtons();
+  }
+}
+function renderZero() {
+  const z = S.zero;
+  $('zeroTxt').textContent = z ? `Zero ${clock(z.w)}: inside reads ${sgn(z.dp, 1)} Pa (±${fmt(z.dpSd, 1)}), ${sgn(z.dt, 2)} °C, ${sgn(z.drh, 1)} % RH vs outside.`
+    : 'No zero yet: the two BMP280s can disagree by ~100 Pa.';
+}
+$('bZero').onclick = () => {
+  if (sealState() && !confirm('The chamber is marked sealed. A zero needs both boards in the same air. Take it anyway?')) return;
+  S.zeroCap = { n: 30, dp: [], dt: [], drh: [] }; $('zeroTxt').textContent = 'Averaging 0/30…'; updateButtons();
+};
+
+/* ---------- interval command, confirmed by the device clock ---------- */
+$('intSel').onchange = () => {
+  const ms = +$('intSel').value; S.intReq = { ms, t: Date.now(), n: 0 }; S.dts = [];
+  $('intTxt').textContent = `Setting ${ms / 1000} s…`;
+  sendCmd('I:' + ms).catch(e => { S.intReq = null; $('intTxt').textContent = 'Command failed: ' + e.message; });
+};
+function checkInterval() {
+  const q = S.intReq; if (!q) return;
+  const d = S.dts.slice(-2);
+  if (d.length === 2 && d.every(x => Math.abs(x - q.ms) < q.ms * 0.15)) { $('intTxt').textContent = `Interval ${q.ms / 1000} s confirmed by the device.`; S.intReq = null; }
+  else if (Date.now() - q.t > 20000 + 3 * q.ms) { $('intTxt').textContent = 'Not confirmed: the firmware may be older than v1.'; S.intReq = null; }
+}
+
+/* ---------- CSV ---------- */
+function exportCSV() {
+  if (!S.rec.length) { $('recMsg').textContent = 'Nothing to export yet.'; return; }
+  const q = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const n2 = (v, d) => fin(v) ? v.toFixed(d) : '';
+  const B = baseline(), t0 = S.rec[0].t;
+  const head = ['time_iso', 'elapsed_s', 'p_in_Pa', 't_in_C', 'rh_in_pct', 'ta_in_C', 'p_out_Pa', 't_out_C', 'rh_out_pct', 'ta_out_C', 'status',
+    'vapour_in_Pa', 'gas_in_Pa_at_Tref', 'gas_delta_Pa', 'gas_delta_uL', 'in_minus_out_zeroed_Pa', 'marker',
+    'chamber_mL', 'T_ref_C', 'temp_source', 'dry_corr', 'zero_dp_Pa', 'ref_injected_mL', 'ref_NaHCO3_mg', 'ref_insect_mg'];
+  let mi = 0; const gAbs = B.gas || 101325;
+  const rows = S.rec.map((f, i) => {
+    const marks = []; while (mi < S.markers.length && S.markers[mi].t <= f.t) { marks.push(S.markers[mi].label); mi++; }
+    const g = gasOf(f), dg = g !== null && fin(B.gas) ? g - B.gas : null;
+    return [new Date(f.w).toISOString(), ((f.t - t0) / 1000).toFixed(3), n2(f.pin, 2), n2(f.tin, 3), n2(f.rhin, 2), n2(f.tain, 2),
+      n2(f.pout, 2), n2(f.tout, 3), n2(f.rhout, 2), n2(f.taout, 2), f.st, n2(vap(f), 2), n2(g, 2), n2(dg, 2), n2(dg !== null ? toUL(dg, gAbs) : null, 1),
+      n2(dioOf(f), 2), marks.join('; '), S.set.vol, S.set.tref, S.set.tsrc, S.set.dry ? 1 : 0, S.zero ? S.zero.dp.toFixed(2) : '', '', '', ''].map(q).join(',');
+  });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([[head.join(','), ...rows].join('\n')], { type: 'text/csv' }));
+  a.download = `respirometer_${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  $('recMsg').textContent = `Exported ${S.rec.length} frames.`;
+}
+
+/* ---------- calculators ---------- */
+function calc() {
+  const f = S.rec[S.rec.length - 1], P = f && fin(f.pin) ? f.pin : 101325, V = S.set.vol, T = S.set.tref + K0;
+  const mg = +$('kMg').value || 0, mmol = mg / MW_NAHCO3, mL = mmol * 8.314462 * T / P * 1000, rise = P * mL / V;
+  $('kCO2out').innerHTML = `${fmt(mmol, 3)} mmol → <b>${fmt(mL, 2)} mL CO₂</b> → <b>+${fmt(rise, 0)} Pa</b> in ${V} mL (if all escapes; expect 10–20 % less, some stays dissolved).<br>` +
+    `Citric acid: ≥ ${fmt(mg * MW_CITRIC / (3 * MW_NAHCO3), 1)} mg (stoichiometric); use ~${fmt(mg * 1.2, 0)} mg so it is in excess.` +
+    (rise > 5000 ? '<br><span class="warn">Over 5 kPa: a lot of force on the lid and port. Use less bicarbonate.</span>' : '');
+  const inj = +$('kInj').value, jump = +$('kJump').value;
+  if (inj > 0 && jump > 0) { const vol = P * inj / jump; S.kVol = vol; $('kVolOut').innerHTML = `Gas volume ≈ <b>${fmt(vol, 1)} mL</b> (P·ΔV/ΔP with P = ${fmt(P, 0)} Pa). Read the jump on “Gas Δ (corrected)” once it settles.`; $('kVolSet').disabled = false; }
+  else { S.kVol = null; $('kVolOut').textContent = `Inject through a septum and read the step on the Gas Δ trend. Expected for ${V} mL: +${fmt(P * inj / V, 0)} Pa.`; $('kVolSet').disabled = true; }
+  const ul = (+$('kMass').value || 0) * (+$('kSpec').value || 0), pa = ul / (V * 1000) * P;
+  $('kInsOut').innerHTML = `${fmt(ul, 0)} µL O₂/h → <b>−${fmt(pa, 1)} Pa/h</b> in ${V} mL with CO₂ scrubbed. Temperature equivalent: ${fmt(pa / (P / T), 3)} °C/h.`;
+}
+['kMg', 'kInj', 'kJump', 'kMass', 'kSpec'].forEach(id => $(id).oninput = calc);
+$('kVolSet').onclick = () => { if (S.kVol) { S.set.vol = +S.kVol.toFixed(1); $('sVol').value = S.set.vol; S.dirty = true; save(); calc(); render(); } };
+
+/* ---------- settings ---------- */
+function readSettings() {
+  const v = +$('sVol').value, w = +$('sWin').value, tr = +$('sTref').value;
+  if (v > 0) S.set.vol = v; if (w >= 1) S.set.win = Math.min(240, w); if (isFinite(tr)) S.set.tref = tr;
+  S.set.tsrc = $('sTsrc').value; S.set.dry = $('sDry').checked; S.dirty = true; calc(); render();
+}
+['sVol', 'sWin', 'sTref'].forEach(id => $(id).onchange = readSettings); $('sTsrc').onchange = readSettings; $('sDry').onchange = readSettings;
+function showSettings() { $('sVol').value = S.set.vol; $('sWin').value = S.set.win; $('sTref').value = S.set.tref; $('sTsrc').value = S.set.tsrc; $('sDry').checked = S.set.dry; }
+
+function updateButtons() {
+  const has = S.rec.length > 0;
+  document.querySelectorAll('[data-mk]').forEach(b => b.disabled = !has); $('mkAdd').disabled = !has;
+  $('bZero').disabled = !S.connected || !!S.zeroCap; $('intSel').disabled = !S.connected || (!S.demo && !S.rxChar);
+}
+
+/* ---------- demo: emulated chamber physics + firmware v1 frame format ---------- */
+const D = { t: 0, intv: 1000, sealed: false, tauLeak: 0, tauScrub: 240, R: 0, wob: 0.05, per: 1, V: 250, Tr: 25,
+  G: null, C: 0, Areact: 0, RHin: 50, timer: null };
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+function demoCommand(cmd) { const c = cmd.trim().toUpperCase(); if (c.startsWith('I:')) { const ms = parseInt(c.slice(2)); if (ms >= 500 && ms <= 60000) D.pendInt = ms; } }
+function demoStep() {
+  if (D.pendInt) { D.intv = D.pendInt; D.pendInt = 0; }
+  const dt = D.intv / 1000; D.t += dt; const t = D.t;
+  const Patm = 101300 + 40 * Math.sin(2 * Math.PI * t / 21600) + 6 * Math.sin(2 * Math.PI * t / 700) + 3 * Math.sin(2 * Math.PI * t / 173 + 1);
+  const Tb = 25 + D.wob * Math.sin(2 * Math.PI * t / 1200), Troom = 23 + 0.3 * Math.sin(2 * Math.PI * t / 3000), RHout = 45 + 2 * Math.sin(2 * Math.PI * t / 2000);
+  const kT = (D.Tr + K0) / (Tb + K0);
+  D.RHin += ((D.sealed ? 85 : 50) - D.RHin) * (1 - Math.exp(-dt / (D.sealed ? 1800 : 60)));
+  const e = D.RHin / 100 * psat(Tb), Geq = (Patm - e) * kT;
+  if (D.G === null || !D.sealed) { D.G = Geq; D.C = 0; D.Areact = 0; }
+  else {
+    const x = D.Areact * (1 - Math.exp(-dt / 60)); D.Areact -= x; D.C += x;                       // reaction releases CO₂ over ~1 min
+    if (D.tauScrub) D.C -= D.C * (1 - Math.exp(-dt / D.tauScrub));                               // NaOH absorbs CO₂
+    const up = D.G * (D.R / 3600) / (D.V * 1000) * dt; D.G -= up; D.C += 0.8 * up;               // insects: O₂ in, CO₂ out (RQ 0.8)
+    if (D.tauLeak) { const k = 1 - Math.exp(-dt / D.tauLeak); D.G += (Geq - D.G) * k; D.C -= D.C * k; }
+  }
+  const Pin = (D.G + D.C) / kT + e;
+  const v = [Math.round(t * 1000), Pin + 35 + 0.8 * gauss(), Tb + 0.15 + 0.004 * gauss(), D.RHin + 0.05 * gauss(), Tb + 0.02 * gauss(),
+    Patm - 12 + 0.8 * gauss(), Troom + 0.2 + 0.004 * gauss(), RHout + 0.05 * gauss(), Troom + 0.02 * gauss(), 15];
+  const d = [0, 2, 3, 2, 2, 2, 3, 2, 2, 0];
+  return v.map((x, i) => x.toFixed(d[i])).join(',') + ',1x,A';
+}
+function demoTick() { for (let i = 0; i < D.per; i++) onNotify(demoStep()); }
+function startDemo() {
+  S.demo = true; $('demoPanel').hidden = false;
+  $('conBtn').onclick = () => { setLink(true); D.timer = setInterval(demoTick, 250); };
+  $('dChamber').onclick = e => { const v = e.target.dataset.v; if (!v) return; D.sealed = v === 'sealed';
+    [...$('dChamber').children].forEach(b => b.classList.toggle('on', b.dataset.v === v)); };
+  $('dLeak').onchange = e => D.tauLeak = +e.target.value; $('dScrub').onchange = e => D.tauScrub = +e.target.value;
+  $('dSpeed').onchange = e => D.per = +e.target.value;
+  $('dR').oninput = e => { D.R = +e.target.value; $('dRv').textContent = D.R + ' µL/h'; };
+  $('dWob').oninput = e => { D.wob = +e.target.value; $('dWobv').textContent = '±' + D.wob.toFixed(2) + ' °C'; };
+  $('dCO2').onclick = () => { if (!D.sealed) { alert('Seal the demo chamber first.'); return; }
+    const mL = (+$('dMg').value || 0) / MW_NAHCO3 * 8.314462 * (D.Tr + K0) / 101325 * 1000 * 0.85; D.Areact += D.G * mL / D.V; };
+  $('dInjB').onclick = () => { if (!D.sealed) { alert('Seal the demo chamber first.'); return; } D.G += D.G * (+$('dInj').value || 0) / D.V; };
+}
+
+/* ---------- wiring ---------- */
+$('conBtn').onclick = connect;
+document.querySelectorAll('[data-mk]').forEach(b => b.onclick = () => addMarker(b.dataset.mk));
+$('mkAdd').onclick = () => { const s = $('mkText').value.trim(); if (!s) return; addMarker('note', s); $('mkText').value = ''; };
+$('cSeries').onchange = e => { S.series = e.target.value; render(); };
+$('cSpan').onclick = e => { const s = e.target.dataset.s; if (s === undefined) return; S.span = +s; [...$('cSpan').children].forEach(b => b.classList.toggle('on', b.dataset.s === s)); render(); };
+$('cOut').onchange = e => { S.showOut = e.target.checked; render(); };
+$('bExport').onclick = exportCSV;
+$('bClear').onclick = () => { if (!confirm('Delete the whole record and its markers from this browser? Export first if you need it.')) return;
+  S.rec = []; S.markers = []; S.lastMs = null; S.newConn = true; S.dts = []; save(); render(); updateButtons(); $('recMsg').textContent = 'Record cleared (zero and settings kept).'; };
+load(); showSettings(); renderZero(); calc(); render(); updateButtons();
+if (S.restored) $('recMsg').textContent = `Restored ${S.restored} frames from this browser. New frames continue the same record.`;
+if (new URLSearchParams(location.search).has('demo')) startDemo();
+</script>
+</body>
+</html>
