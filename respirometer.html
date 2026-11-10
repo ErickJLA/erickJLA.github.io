@@ -147,16 +147,23 @@
     <h2>Trend</h2>
     <div class="row">
       <select id="cSeries" class="inl">
-        <option value="gas">Gas Δ (corrected), Pa</option><option value="vol">Gas Δ, µL</option><option value="pin">P inside Δ (raw), Pa</option>
-        <option value="dio">Inside − outside, Pa</option><option value="tin">T inside, °C</option><option value="rhin">RH inside, %</option>
-        <option value="pout">P outside Δ, Pa</option>
+        <optgroup label="Inside board only">
+          <option value="gas">Gas Δ, T + vapour corrected, Pa</option><option value="vol">Gas Δ, T + vapour corrected, µL</option>
+          <option value="gasT">Gas Δ, T corrected only (BMP280), Pa</option><option value="pin">P inside Δ (raw), Pa</option>
+          <option value="pinA">P inside, absolute (raw), Pa</option><option value="tin">T inside BMP280, °C</option>
+          <option value="tain">T inside AHT20, °C</option><option value="rhin">RH inside, %</option>
+        </optgroup>
+        <optgroup label="Outside board / both">
+          <option value="poutA">P outside, absolute (raw), Pa</option><option value="pout">P outside Δ, Pa</option>
+          <option value="dio">Inside − outside, Pa</option>
+        </optgroup>
       </select>
       <div class="seg" id="cSpan"><button data-s="5">5 m</button><button data-s="30" class="on">30 m</button><button data-s="120">2 h</button><button data-s="0">All</button></div>
     </div>
   </div>
   <svg class="chart" id="chart" viewBox="0 0 800 250" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="row" style="justify-content:space-between">
-    <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2)"><input type="checkbox" id="cOut" checked style="width:auto"> overlay outside pressure Δ (dashed)</label>
+    <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2)"><input type="checkbox" id="cOut" checked style="width:auto"> overlay outside pressure (dashed)</label>
     <span class="hint" style="margin:0" id="cInfo"></span>
   </div>
   <div class="hint" id="cHint">Δ values are relative to the “Sealed” marker (or the start of the record).</div>
@@ -212,22 +219,6 @@
       <div class="grid2"><div><label for="kMass">Insect mass, mg</label><input id="kMass" type="number" value="50" step="1"></div><div><label for="kSpec">O₂ uptake, µL/(mg·h)</label><input id="kSpec" type="number" value="1" step="0.1"></div></div>
       <div class="out" id="kInsOut"></div>
     </div>
-  </details>
-</section>
-
-<section>
-  <details>
-    <summary>How to run today’s test</summary>
-    <ol>
-      <li><b>Warm up.</b> Both boards in the room, chamber open, connected. Wait ~10 min until temperatures stop moving.</li>
-      <li><b>Zero.</b> Press <i>Take zero</i> with both boards open to the same air. This removes the factory offset between the two BMP280s.</li>
-      <li><b>Blank run.</b> Put the chamber in the bath with the scrubber and nothing else, close it, press <i>Sealed</i>. Watch for 20–30 min: <i>Leak check</i> should say sealed, <i>Rate</i> should hover near 0 µL/h. That number is your drift floor: insects must produce more than this.</li>
-      <li><b>Hold test</b> (needs a septum or a syringe port): inject 2–5 mL of air and press <i>Air injected</i>. A sealed chamber keeps the step; a leak lets it decay. The step size also gives you the chamber volume (Calculators). Do it before the insects go in.</li>
-      <li><b>CO₂ test.</b> Start the bicarbonate + citric acid reaction <i>without opening the chamber</i> (tip a vial), press <i>CO₂ started</i>. The gas rises, then the scrubber pulls it back down. Read % removed and the half-time.</li>
-      <li><b>Control.</b> Repeat the CO₂ test with no scrubber. The rise should stay up. If it also falls, the CO₂ is dissolving in the reaction liquid or leaking, not being scrubbed.</li>
-      <li><b>Compare scrubbers</b> (solution vs sponge) with the same mg of bicarbonate. Export CSV after each run.</li>
-    </ol>
-    <div class="hint">Leak check, two ways. Without a hold test it compares wiggles: an open or badly leaking chamber follows room-pressure wiggles (doors, ventilation), a sealed one does not. That only catches fast leaks. A leak that takes minutes to hours to equalise filters the wiggles out, so only the hold test can show it.</div>
   </details>
 </section>
 
@@ -366,6 +357,7 @@ function gasOf(f) {                                         // dry gas pressure 
   if (S.set.tsrc !== 'none') { const T = S.set.tsrc === 'bmp' ? f.tin : f.tain; if (!fin(T)) return null; p *= (S.set.tref + K0) / (T + K0); }
   return p;
 }
+const gasTOf = f => fin(f.pin) && fin(f.tin) ? f.pin * (S.set.tref + K0) / (f.tin + K0) : null;   // BMP280 alone: P/T, no humidity
 const dioOf = f => fin(f.pin) && fin(f.pout) ? f.pin - f.pout - (S.zero ? S.zero.dp : 0) : null;
 const toUL = (dPa, gAbs) => dPa / gAbs * S.set.vol * 1000;          // Pa of gas change -> µL at T_ref and current pressure
 function lowerIdx(t) { let lo = 0, hi = S.rec.length; while (lo < hi) { const m = (lo + hi) >> 1; if (S.rec[m].t < t) lo = m + 1; else hi = m; } return lo; }
@@ -376,10 +368,11 @@ function sealState() {                                       // last Sealed mark
 }
 function baseline() {
   const seal = sealState(), t0 = seal ? seal.t : (S.rec[0] ? S.rec[0].t : 0);
-  const i0 = lowerIdx(t0), xs = [], ps = [], ins = [];
+  const i0 = lowerIdx(t0), xs = [], ps = [], ins = [], gts = [];
   for (let i = i0; i < S.rec.length && xs.length < 5; i++) { const g = gasOf(S.rec[i]); if (g !== null) { xs.push(g); ps.push(S.rec[i].pout); ins.push(S.rec[i].pin); } }
+  for (let i = i0; i < S.rec.length && gts.length < 5; i++) { const g = gasTOf(S.rec[i]); if (g !== null) gts.push(g); }
   const mean = a => { const b = a.filter(fin); return b.length ? b.reduce((x, y) => x + y, 0) / b.length : null; };
-  return { seal, t0, i0, gas: mean(xs), pout: mean(ps), pin: mean(ins) };
+  return { seal, t0, i0, gas: mean(xs), pout: mean(ps), pin: mean(ins), gasT: mean(gts) };
 }
 function linfit(xs, ys) {
   const n = xs.length; if (n < 3) return null;
@@ -554,27 +547,30 @@ function seriesVal(f, s, B, gAbs) {
     case 'dio': return dioOf(f);
     case 'tin': return f.tin; case 'rhin': return f.rhin;
     case 'pout': return fin(f.pout) && fin(B.pout) ? f.pout - B.pout : null;
+    case 'gasT': { const g = gasTOf(f); return g !== null && fin(B.gasT) ? g - B.gasT : null; }
+    case 'pinA': return f.pin; case 'poutA': return f.pout; case 'tain': return f.tain;
+    case 'poutZ': return fin(f.pout) ? f.pout + (S.zero ? S.zero.dp : 0) : null;   // outside, shifted onto the inside sensor's scale
   }
 }
 function renderChart(A) {
-  const svg = $('chart'), n = S.rec.length, W = Math.max(300, Math.round(svg.clientWidth || 800)), H = W < 500 ? 220 : 250, L = 52, R = W - 8, T = 16, Bt = H - 28;
+  const svg = $('chart'), n = S.rec.length, W = Math.max(300, Math.round(svg.clientWidth || 800)), H = W < 500 ? 220 : 250, L = ['pinA', 'poutA'].includes(S.series) ? 66 : 52, R = W - 8, T = 16, Bt = H - 28;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   if (!n) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">No data yet</text>`; $('cInfo').textContent = ''; return; }
   const last = S.rec[n - 1], t1 = last.t, t0 = S.span ? t1 - S.span * 60000 : S.rec[0].t, i0 = lowerIdx(t0);
-  const s = S.series, overlay = S.showOut && ['gas', 'pin', 'dio'].includes(s);
+  const s = S.series, OVL = { gas: 'pout', gasT: 'pout', pin: 'pout', dio: 'pout', pinA: 'poutZ' }, overlay = S.showOut && OVL[s];
   const NB = 400, bins = new Array(NB).fill(null).map(() => ({ s: 0, n: 0, o: 0, on: 0 })), span = Math.max(1, t1 - t0);
   for (let i = i0; i < n; i++) {
     const f = S.rec[i], b = Math.min(NB - 1, Math.floor((f.t - t0) / span * NB)), v = seriesVal(f, s, A.B, A.gAbs);
     if (fin(v)) { bins[b].s += v; bins[b].n++; }
-    if (overlay) { const o = seriesVal(f, 'pout', A.B, A.gAbs); if (fin(o)) { bins[b].o += o; bins[b].on++; } }
+    if (overlay) { const o = seriesVal(f, overlay, A.B, A.gAbs); if (fin(o)) { bins[b].o += o; bins[b].on++; } }
   }
   const pts = [], ops = [];
   bins.forEach((b, k) => { const t = t0 + (k + 0.5) / NB * span; if (b.n) pts.push([t, b.s / b.n]); if (b.on) ops.push([t, b.o / b.on]); });
   const all = pts.map(p => p[1]).concat(ops.map(p => p[1]));
   if (!all.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">No valid values for this series (check sensors / zero)</text>`; return; }
   let lo = Math.min(...all), hi = Math.max(...all);
-  const delta = !['tin', 'rhin'].includes(s); if (delta) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
-  const minSpan = s === 'tin' ? 0.05 : s === 'rhin' ? 0.5 : 2; if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; }
+  const delta = !['tin', 'tain', 'rhin', 'pinA', 'poutA'].includes(s); if (delta) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  const minSpan = s === 'tin' || s === 'tain' ? 0.05 : s === 'rhin' ? 0.5 : 2; if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; }
   const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
   const X = t => L + (t - t0) / span * (R - L), Y = v => Bt - (v - lo) / (hi - lo) * (Bt - T);
   const dec = hi - lo < 1 ? 3 : hi - lo < 20 ? 2 : hi - lo < 200 ? 1 : 0;
@@ -595,7 +591,10 @@ function renderChart(A) {
     vol: 'The same gas change expressed as µL (uses the chamber volume in Settings).', pin: 'Raw inside pressure: includes temperature and humidity effects. Compare with Gas Δ to see what the correction removes.',
     dio: 'Inside minus outside (zero applied). Open chamber: ~0. Sealed: drifts with weather and with the chamber.',
     tin: 'BMP280 temperature in the chamber. 0.01 °C ≈ 3.4 Pa of raw pressure.', rhin: 'Relative humidity in the chamber (AHT20).',
-    pout: 'Room pressure change: weather, doors, ventilation. A sealed chamber should not follow it.' }[s];
+    pout: 'Room pressure change: weather, doors, ventilation. A sealed chamber should not follow it.',
+    gasT: 'Inside BMP280 alone: P × T_ref / T, no humidity correction. Compare with Gas Δ (T + vapour) to see what the AHT20 adds.',
+    pinA: 'Inside BMP280 exactly as measured, no corrections. Dashed: outside pressure shifted by the zero offset onto the same scale.',
+    poutA: 'Outside BMP280 exactly as measured.', tain: 'AHT20 temperature in the chamber (used for the vapour pressure).' }[s];
 }
 
 /* ---------- markers ---------- */
